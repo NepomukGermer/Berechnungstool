@@ -485,11 +485,18 @@ with tab1:
                 ["Stammholz", "Hackschnitzel"],
                 key="schwarzerle_ernte_art"
             )
-            verwertung_tmp = st.selectbox(
-                "Welche Verwertung streben Sie bei Schwarzerle an?",
-                ["Wertholz", "Plattenwerkstoffe", "Thermische Verwertung"],
-                key="sel_verwertung_schwarzerle"
-            )
+            if schwarzerle_tmp == "Hackschnitzel":
+                verwertung_tmp = st.selectbox(
+                    "Welche Verwertung für Schwarzerle-Hackschnitzel streben Sie an?",
+                    ["Thermische Verwertung", "Mulch", "Pilzzucht", "Biofilter"],
+                    key="sel_verwertung_schwarzerle_hackschnitzel"
+                )
+            else:
+                verwertung_tmp = st.selectbox(
+                    "Welche Verwertung streben Sie bei Schwarzerle (Stammholz) an?",
+                    ["Wertholz", "Plattenwerkstoffe", "Thermische Verwertung"],
+                    key="sel_verwertung_schwarzerle_stammholz"
+                )
 
         # C) Torfmoos
         elif bewirtschaftung == "Torfmoos":
