@@ -624,11 +624,18 @@ with tab1:
             )
 
         if verwertung_tmp == "Thermische Verwertung":
-            folge_tmp = st.selectbox(
-                "Wie möchten Sie die Biomasse thermisch nutzen?",
-                ["Briketts", "Pellets", "Trockenmasse / Direktverbrennung", "Biogas"],
-                key="folge_thermisch"
-            )
+            if bewirtschaftung == "Schwarzerle":
+                folge_tmp = st.selectbox(
+                    "Wie möchten Sie die Schwarzerle thermisch nutzen?",
+                    ["Direkte Verbrennung"],
+                    key="folge_thermisch_schwarzerle"
+                )
+            else:
+                folge_tmp = st.selectbox(
+                    "Wie möchten Sie die Biomasse thermisch nutzen?",
+                    ["Briketts", "Pellets", "Trockenmasse / Direktverbrennung", "Biogas"],
+                    key="folge_thermisch"
+                )
 
         if verwertung_tmp in ["Samen", "Saatgut ernten", "Fasern"]:
             folge_tmp = st.selectbox(
