@@ -5,7 +5,6 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Klima- & Berechnungs-Hub", layout="wide")
 st.title("🌱 Klima- & Berechnungs-Hub")
 
-# Schritt-Steuerung für das Moor-Tool initialisieren
 if "moor_step" not in st.session_state:
     st.session_state.moor_step = 0
 
@@ -34,22 +33,28 @@ tab1, tab2, tab3 = st.tabs([
 with tab1:
     st.header("Moor-Wiedervernässung & Paludikultur")
 
-    # Standardwerte, damit Tab 3 immer auf gültige Zahlen zugreifen kann
     flaechen_groesse = st.session_state.get("moor_flaeche_val", 10.0)
     moor_typ = st.session_state.get("moor_typ_val", "Hochmoor")
     besitz_status = st.session_state.get("moor_besitz_val", "Bereits im Besitz")
     vorher_nutzung = st.session_state.get("moor_vorher_val", "Grünland")
     bisherige_ertraege_pro_ha = st.session_state.get("moor_ertrag_val", 800.0)
     kaufkosten_gesamt = st.session_state.get("moor_kaufkosten_val", 0.0)
+
     bewirtschaftung = st.session_state.get("moor_bewirtschaftung_val", "Rohrglanzgras")
     etablierungs_art = st.session_state.get("moor_etablierung_val", "Natürliche Sukzession")
     etablierungs_detail = st.session_state.get("moor_etablierung_detail_val", None)
+
+    mahd_zeitpunkt = st.session_state.get("moor_mahd_zeitpunkt_val", "Sommermahd")
+    ernteform_biomasse = st.session_state.get("moor_ernteform_val", "Häckselgut")
+    schwarzerle_ernte = st.session_state.get("moor_schwarzerle_ernte_val", "Stammholz")
     verwertung = st.session_state.get("moor_verwertung_val", None)
     folge_auswahl = st.session_state.get("moor_folge_val", None)
     tier_art = st.session_state.get("moor_tier_art_val", None)
+    tier_haltungssystem = st.session_state.get("moor_tier_haltung_val", None)
     tier_vermarktung = st.session_state.get("moor_tier_vermarktung_val", None)
     erntetechnik = st.session_state.get("moor_erntetechnik_val", None)
-    erntezeitpunkt = st.session_state.get("moor_erntezeitpunkt_val", None)
+    haeckselfeld_bereich = st.session_state.get("moor_haeckselfeld_bereich_val", None)
+    haeckselfeld_detail = st.session_state.get("moor_haeckselfeld_detail_val", None)
 
     # --- SCHRITT 0: STARTMASKE ---
     if st.session_state.moor_step == 0:
@@ -79,6 +84,7 @@ with tab1:
 
         kaufkosten_tmp = 0.0
         vorbesitzer_ertrag_bekannt = False
+        ertrag_step1_tmp = float(bisherige_ertraege_pro_ha)
 
         if besitz_input == "Muss gekauft werden":
             preis_bekannt = st.radio(
@@ -105,6 +111,15 @@ with tab1:
                 key="input_vorbesitzer_bekannt"
             )
 
+            if vorbesitzer_ertrag_bekannt:
+                ertrag_step1_tmp = st.number_input(
+                    "Bisherige Erträge vom Vorbesitzer (€/ha):",
+                    min_value=0.0,
+                    value=float(bisherige_ertraege_pro_ha),
+                    step=50.0,
+                    key="input_vorbesitzer_ertrag_ha"
+                )
+
         vorher_input = st.selectbox(
             "Was war die Fläche vorher?",
             ["Ackerland", "Grünland"],
@@ -119,11 +134,13 @@ with tab1:
             st.session_state.moor_besitz_val = besitz_input
             st.session_state.moor_kaufkosten_val = kaufkosten_tmp
             st.session_state.moor_vorbesitzer_bekannt_val = vorbesitzer_ertrag_bekannt
+            if besitz_input == "Muss gekauft werden" and vorbesitzer_ertrag_bekannt:
+                st.session_state.moor_ertrag_val = ertrag_step1_tmp
             st.session_state.moor_vorher_val = vorher_input
             go_next()
             st.rerun()
 
-    # --- SCHRITT 1: ERTRÄGE & BEWIRTSCHAFTUNG ---
+    # --- SCHRITT 1: ERTRÄGE (BEI BESITZ) & BEWIRTSCHAFTUNG ---
     elif st.session_state.moor_step == 1:
         nav_col1, nav_col2, _ = st.columns([1, 1, 4])
         with nav_col1:
@@ -133,9 +150,8 @@ with tab1:
 
         st.subheader("Schritt 2 von 3: Bisherige Erträge & Bewirtschaftung")
 
-        vorbesitzer_bekannt = st.session_state.get("moor_vorbesitzer_bekannt_val", False)
         ertrag_tmp = bisherige_ertraege_pro_ha
-        if besitz_status == "Bereits im Besitz" or vorbesitzer_bekannt:
+        if besitz_status == "Bereits im Besitz":
             ertrag_tmp = st.number_input(
                 "Wie hoch waren die bisherigen Erträge auf der Fläche (€/ha und Jahr)?",
                 min_value=0.0,
@@ -151,20 +167,21 @@ with tab1:
             "Schilf",
             "Rohrkolben",
             "Torfmoos",
-            "Wasserbüffel",
+            "Tierhaltung",
             "Photo-Voltaik",
             "Seggen"
         ]
+        aktuelle_bew = bewirtschaftung if bewirtschaftung in bew_optionen else "Rohrglanzgras"
         bew_tmp = st.selectbox(
             "Wie möchten Sie wirtschaften?",
             bew_optionen,
-            index=bew_optionen.index(bewirtschaftung),
+            index=bew_optionen.index(aktuelle_bew),
             key="input_bewirtschaftung"
         )
 
         etab_tmp = None
         etab_detail_tmp = None
-        if bew_tmp not in ["Wasserbüffel", "Photo-Voltaik"]:
+        if bew_tmp not in ["Tierhaltung", "Photo-Voltaik"]:
             etab_tmp = st.radio(
                 "Möchten Sie natürliche Sukzession oder eine Erstetablierung durchführen?",
                 ["Natürliche Sukzession", "Erstetablierung"],
@@ -188,7 +205,7 @@ with tab1:
             go_next()
             st.rerun()
 
-    # --- SCHRITT 2: VERWERTUNG, TECHNIK & AUSWERTUNG ---
+    # --- SCHRITT 2: ERNTEFORM, VERWERTUNG, TECHNIK & AUSWERTUNG ---
     elif st.session_state.moor_step == 2:
         nav_col1, nav_col2, _ = st.columns([1, 1, 4])
         with nav_col1:
@@ -196,50 +213,216 @@ with tab1:
         with nav_col2:
             st.button("🏠 Zur Startseite", on_click=go_to_start, key="btn_start_2")
 
-        st.subheader("Schritt 3 von 3: Verwertung, Erntetechnik & Auswertung")
+        st.subheader("Schritt 3 von 3: Ernteform, Verwertung, Technik & Auswertung")
 
+        mahd_tmp = mahd_zeitpunkt
+        ernteform_tmp = None
+        schwarzerle_tmp = None
         verwertung_tmp = None
         folge_tmp = None
         tier_art_tmp = None
+        tier_haltung_tmp = None
         tier_vermarktung_tmp = None
         erntetechnik_tmp = None
-        erntezeitpunkt_tmp = None
+        haeckselfeld_bereich_tmp = None
+        haeckselfeld_detail_tmp = None
 
-        if bewirtschaftung == "Rohrkolben":
-            verwertung_tmp = st.selectbox(
-                "Welche Verwertungsmöglichkeit für Rohrkolben streben Sie an?",
-                [
-                    "Dämmen und Bauen",
-                    "Werkstoffe & Papier",
-                    "Heizen",
-                    "Samen",
-                    "Fasern",
-                    "Gartenbausubstrate",
-                    "Einstreu",
-                    "Plattformchemikalien",
-                    "Häckselgut",
-                    "Ballen",
-                    "Bunde"
-                ],
-                key="sel_verwertung_rohrkolben"
+        # A) Pflanzenarten mit Erntezeitpunkt & Biomasse-Ernteform als erstem Schritt nach Auswahl
+        if bewirtschaftung in ["Rohrglanzgras", "Schilf", "Rohrkolben", "Seggen"]:
+            mahd_tmp = st.radio(
+                f"Wann erfolgt die Mahd bei {bewirtschaftung}?",
+                ["Sommermahd", "Wintermahd"],
+                key=f"mahd_{bewirtschaftung}"
             )
-        elif bewirtschaftung == "Schilf":
-            verwertung_tmp = st.selectbox(
-                "Welche Verwertungsmöglichkeit für Schilf streben Sie an?",
+            ernteform_tmp = st.selectbox(
+                "In welcher Form möchten Sie die Biomasse ernten?",
                 [
                     "Häckselgut",
-                    "Ballen",
+                    "Rundballen",
+                    "Quaderballen",
                     "Bunde",
-                    "Dämmen",
-                    "Werkstoffe & Papier",
-                    "Heizen",
-                    "Kultursubstrate",
-                    "Einstreu",
-                    "Bio-Aktivkohle",
-                    "Plattformchemikalien"
+                    "Loses Langgut",
+                    "Pelletierte Form",
+                    "Brikettierte Form"
                 ],
-                key="sel_verwertung_schilf"
+                key=f"ernteform_{bewirtschaftung}"
             )
+
+            # Spezifische Verzweigung für Häckselgut
+            if ernteform_tmp == "Häckselgut":
+                haeckselfeld_bereich_tmp = st.selectbox(
+                    "Wofür soll das Häckselgut genutzt werden?",
+                    [
+                        "Energetische Verwertung",
+                        "Stoffliche Nutzung",
+                        "Gartenbau und Landwirtschaft"
+                    ],
+                    key=f"haeckselfeld_bereich_{bewirtschaftung}"
+                )
+
+                if haeckselfeld_bereich_tmp == "Energetische Verwertung":
+                    energie_optionen = []
+                    if mahd_tmp == "Sommermahd":
+                        energie_optionen.append("Biogasproduktion")
+                    if mahd_tmp == "Wintermahd":
+                        energie_optionen.extend([
+                            "Direkte Verbrennung",
+                            "Briketts und Pellets"
+                        ])
+                    energie_optionen.append("Zellulose-Ethanol")
+
+                    haeckselfeld_detail_tmp = st.selectbox(
+                        "Welche energetische Verwertung soll erfolgen?",
+                        energie_optionen,
+                        key=f"haeckselfeld_energie_{bewirtschaftung}"
+                    )
+
+                elif haeckselfeld_bereich_tmp == "Stoffliche Nutzung":
+                    stoff_optionen = [
+                        "Einblasdämmung",
+                        "Dämm- und Faserplatten",
+                        "Formteile & Verpackungen"
+                    ]
+                    if bewirtschaftung == "Schilf":
+                        stoff_optionen.extend([
+                            "Lehm- und Kalk-Schilf-Leichtbau",
+                            "Zellstoff- und Papierherstellung",
+                            "Biokunststoffe"
+                        ])
+
+                    haeckselfeld_detail_tmp = st.selectbox(
+                        "Welche stoffliche Nutzung soll erfolgen?",
+                        stoff_optionen,
+                        key=f"haeckselfeld_stoff_{bewirtschaftung}"
+                    )
+
+                elif haeckselfeld_bereich_tmp == "Gartenbau und Landwirtschaft":
+                    garten_optionen = [
+                        "Torfersatz",
+                        "Mulchmaterial",
+                        "Pflanzenkohle"
+                    ]
+                    if mahd_tmp == "Wintermahd":
+                        garten_optionen.insert(1, "Einstreu in der Tierhaltung")
+
+                    haeckselfeld_detail_tmp = st.selectbox(
+                        "Welche Nutzung im Bereich Gartenbau und Landwirtschaft soll erfolgen?",
+                        garten_optionen,
+                        key=f"haeckselfeld_garten_{bewirtschaftung}"
+                    )
+
+                verwertung_tmp = haeckselfeld_bereich_tmp
+                folge_tmp = haeckselfeld_detail_tmp
+
+            # Spezifische Verzweigung für pelletierte Form
+            elif ernteform_tmp == "Pelletierte Form":
+                pellet_optionen = [
+                    "Verbrennen",
+                    "Tiereinstreu",
+                    "Raufutterersatz",
+                    "Organischer Dünger",
+                    "Torfersatz in Kultursubstraten",
+                    "Mulch-Pellets",
+                    "Biokunststoffe & Spritzguss",
+                    "Faserplatten & Dämmstoffe",
+                    "Pflanzenkohle & Aktivkohle",
+                    "Biogas-Substrat",
+                    "Papier herstellen"
+                ]
+                verwertung_tmp = st.selectbox(
+                    "Welche Verwertung der pelletierten Biomasse streben Sie an?",
+                    pellet_optionen,
+                    key=f"pellet_verwertung_{bewirtschaftung}"
+                )
+                folge_tmp = verwertung_tmp
+
+            # Spezifische Verzweigung für Ballen (Rundballen / Quaderballen) und Bunde
+            elif ernteform_tmp in ["Rundballen", "Quaderballen", "Bunde"]:
+                if bewirtschaftung == "Rohrkolben":
+                    basis_verwertung = [
+                        "Dämmen und Bauen",
+                        "Werkstoffe & Papier",
+                        "Heizen",
+                        "Samen",
+                        "Fasern",
+                        "Gartenbausubstrate",
+                        "Einstreu",
+                        "Plattformchemikalien",
+                        "Ballen",
+                        "Bunde",
+                        "Papier herstellen"
+                    ]
+                elif bewirtschaftung == "Schilf":
+                    basis_verwertung = [
+                        "Ballen",
+                        "Bunde",
+                        "Dämmen",
+                        "Werkstoffe & Papier",
+                        "Heizen",
+                        "Kultursubstrate",
+                        "Einstreu",
+                        "Bio-Aktivkohle",
+                        "Plattformchemikalien",
+                        "Papier herstellen"
+                    ]
+                elif bewirtschaftung == "Seggen":
+                    basis_verwertung = [
+                        "Verbrennung",
+                        "Pferdeheu",
+                        "Einstreu",
+                        "Bau- & Dämmstoffe",
+                        "Gartenbausubstrate",
+                        "Kohle",
+                        "Papier herstellen"
+                    ]
+                else:  # Rohrglanzgras
+                    basis_verwertung = [
+                        "Pferdeheu",
+                        "Raufutter",
+                        "Proteinkonzentrat",
+                        "Einstreu",
+                        "Verbrennung",
+                        "Papier",
+                        "Bau- & Dämmstoffe",
+                        "Ballen",
+                        "Bunde",
+                        "Papier herstellen"
+                    ]
+
+                verwertung_tmp = st.selectbox(
+                    f"Welche Verwertung für {ernteform_tmp} streben Sie an?",
+                    basis_verwertung,
+                    key=f"ballen_bund_verwertung_{bewirtschaftung}"
+                )
+
+            # Für loses Langgut oder brikettierte Form
+            else:
+                verwertung_tmp = st.selectbox(
+                    f"Welche Verwertung für {ernteform_tmp} streben Sie an?",
+                    [
+                        "Verbrennen / Heizen",
+                        "Bau- & Dämmstoffe",
+                        "Einstreu",
+                        "Substrate & Bodenverbesserung",
+                        "Werkstoffe"
+                    ],
+                    key=f"sonstige_ernteform_verwertung_{bewirtschaftung}"
+                )
+
+        # B) Schwarzerle: Stammholz vs. Hackschnitzel
+        elif bewirtschaftung == "Schwarzerle":
+            schwarzerle_tmp = st.radio(
+                "Ernten Sie bei der Schwarzerle Stammholz oder Hackschnitzel?",
+                ["Stammholz", "Hackschnitzel"],
+                key="schwarzerle_ernte_art"
+            )
+            verwertung_tmp = st.selectbox(
+                "Welche Verwertung streben Sie bei Schwarzerle an?",
+                ["Wertholz", "Plattenwerkstoffe", "Heizen"],
+                key="sel_verwertung_schwarzerle"
+            )
+
+        # C) Torfmoos wie bisher
         elif bewirtschaftung == "Torfmoos":
             verwertung_tmp = st.selectbox(
                 "Was möchten Sie mit Torfmoos tun?",
@@ -252,12 +435,8 @@ with tab1:
                 ],
                 key="sel_verwertung_torfmoos"
             )
-        elif bewirtschaftung == "Schwarzerle":
-            verwertung_tmp = st.selectbox(
-                "Welche Verwertung streben Sie bei Schwarzerle an?",
-                ["Wertholz", "Plattenwerkstoffe", "Heizen"],
-                key="sel_verwertung_schwarzerle"
-            )
+
+        # D) Nasswiese
         elif bewirtschaftung == "Nasswiese":
             verwertung_tmp = st.selectbox(
                 "Welche Nutzung auf Nasswiesen / Nassweiden streben Sie an?",
@@ -273,39 +452,46 @@ with tab1:
                 ],
                 key="sel_verwertung_nasswiese"
             )
-        elif bewirtschaftung == "Seggen":
-            verwertung_tmp = st.selectbox(
-                "Welche Verwertung streben Sie bei Seggen an?",
-                [
-                    "Verbrennung",
-                    "Pferdeheu",
-                    "Einstreu",
-                    "Bau- & Dämmstoffe",
-                    "Gartenbausubstrate",
-                    "Kohle"
-                ],
-                key="sel_verwertung_seggen"
-            )
-        elif bewirtschaftung == "Rohrglanzgras":
-            verwertung_tmp = st.selectbox(
-                "Welche Verwertung streben Sie bei Rohrglanzgras an?",
-                [
-                    "Pferdeheu",
-                    "Raufutter",
-                    "Proteinkonzentrat",
-                    "Einstreu",
-                    "Verbrennung",
-                    "Faserguss",
-                    "Papier",
-                    "Bau- & Dämmstoffe",
-                    "Häckselgut",
-                    "Ballen",
-                    "Bunde"
-                ],
-                key="sel_verwertung_rohrglanzgras"
-            )
 
-        # Anschlussfragen nach Verwertung
+        # E) Tierhaltung (ersetzt Wasserbüffel)
+        elif bewirtschaftung == "Tierhaltung":
+            verwertung_tmp = "Tiere halten"
+            tier_art_tmp = st.radio(
+                "Welche Tierart möchten Sie halten?",
+                ["Wasserbüffel", "Robustrinder"],
+                key="tierhaltung_art_direkt"
+            )
+            tier_haltung_tmp = st.selectbox(
+                "Wie wird die Bewirtschaftung durchgeführt?",
+                ["Ganzjährig", "Extensiv", "Vollweidesystem", "Teilweidesystem"],
+                key="tierhaltung_system_direkt"
+            )
+            tier_vermarktung_tmp = st.radio(
+                "Soll das Tier selbst oder als Fleischprodukt verkauft werden?",
+                ["Tier selbst verkaufen", "Als Fleischprodukt verkaufen"],
+                key="tierhaltung_vermarktung_direkt"
+            )
+            folge_tmp = f"{tier_art_tmp} – {tier_haltung_tmp} – {tier_vermarktung_tmp}"
+
+        # Anschlussfragen bei Nasswiese / Verwertungsdetails
+        if bewirtschaftung == "Nasswiese" and verwertung_tmp == "Tiere halten":
+            tier_art_tmp = st.radio(
+                "Welche Tierart möchten Sie halten?",
+                ["Wasserbüffel", "Robustrinder"],
+                key="nasswiese_tierart"
+            )
+            tier_haltung_tmp = st.selectbox(
+                "Wie wird die Bewirtschaftung durchgeführt?",
+                ["Ganzjährig", "Extensiv", "Vollweidesystem", "Teilweidesystem"],
+                key="nasswiese_tierhaltung_system"
+            )
+            tier_vermarktung_tmp = st.radio(
+                "Soll das Tier selbst oder als Fleischprodukt verkauft werden?",
+                ["Tier selbst verkaufen", "Als Fleischprodukt verkaufen"],
+                key="nasswiese_tier_vermarktung"
+            )
+            folge_tmp = f"{tier_art_tmp} – {tier_haltung_tmp} – {tier_vermarktung_tmp}"
+
         if verwertung_tmp in ["Dämmen und Bauen", "Bau- & Dämmstoffe"]:
             folge_tmp = st.selectbox(
                 "Welche Dämm- bzw. Bauprodukte möchten Sie herstellen?",
@@ -355,23 +541,6 @@ with tab1:
                 key="folge_torfmoos_substrat"
             )
 
-        if verwertung_tmp == "Tiere halten":
-            folge_tmp = st.selectbox(
-                "Wie möchten Sie die Tiere halten?",
-                ["Ganzjährig", "Extensiv", "Vollweidesystem", "Teilweidesystem"],
-                key="folge_tierhaltung_system"
-            )
-            tier_art_tmp = st.radio(
-                "Welche Tierart möchten Sie halten?",
-                ["Wasserbüffel", "Robustrinder"],
-                key="folge_tierart"
-            )
-            tier_vermarktung_tmp = st.radio(
-                "Was ist Ihr Schwerpunkt bei der Tierhaltung?",
-                ["Fleisch verkaufen", "Züchten und Tiere verkaufen"],
-                key="folge_tier_vermarktung"
-            )
-
         if verwertung_tmp == "Raufutter gewinnen":
             folge_tmp = st.selectbox(
                 "Welche Raufutter-Form möchten Sie gewinnen?",
@@ -379,7 +548,8 @@ with tab1:
                 key="folge_raufutter"
             )
 
-        if bewirtschaftung not in ["Photo-Voltaik", "Wasserbüffel", "Schwarzerle"]:
+        # Erntemaschinen für Pflanzenarten (außer PV, Tierhaltung, Schwarzerle)
+        if bewirtschaftung not in ["Photo-Voltaik", "Tierhaltung", "Schwarzerle"]:
             erntetechnik_tmp = st.selectbox(
                 "Wie sieht es mit Erntemaschinen aus?",
                 [
@@ -392,26 +562,27 @@ with tab1:
                 key="moor_erntetechnik"
             )
 
-        if verwertung_tmp == "Häckselgut":
-            erntezeitpunkt_tmp = st.radio(
-                "Wann erfolgt die Ernte für Häckselgut?",
-                ["Sommerernte", "Winterernte"],
-                key="moor_erntezeitpunkt_haeckselfutter"
-            )
-
+        st.session_state.moor_mahd_zeitpunkt_val = mahd_tmp
+        st.session_state.moor_ernteform_val = ernteform_tmp
+        st.session_state.moor_schwarzerle_ernte_val = schwarzerle_tmp
         st.session_state.moor_verwertung_val = verwertung_tmp
         st.session_state.moor_folge_val = folge_tmp
         st.session_state.moor_tier_art_val = tier_art_tmp
+        st.session_state.moor_tier_haltung_val = tier_haltung_tmp
         st.session_state.moor_tier_vermarktung_val = tier_vermarktung_tmp
         st.session_state.moor_erntetechnik_val = erntetechnik_tmp
-        st.session_state.moor_erntezeitpunkt_val = erntezeitpunkt_tmp
+        st.session_state.moor_haeckselfeld_bereich_val = haeckselfeld_bereich_tmp
+        st.session_state.moor_haeckselfeld_detail_val = haeckselfeld_detail_tmp
 
+        mahd_zeitpunkt = mahd_tmp
+        ernteform_biomasse = ernteform_tmp
+        schwarzerle_ernte = schwarzerle_tmp
         verwertung = verwertung_tmp
         folge_auswahl = folge_tmp
         tier_art = tier_art_tmp
+        tier_haltungssystem = tier_haltung_tmp
         tier_vermarktung = tier_vermarktung_tmp
         erntetechnik = erntetechnik_tmp
-        erntezeitpunkt = erntezeitpunkt_tmp
 
     # ==========================================
     # BERECHNUNGSLOGIK MOOR (IMMER AKTUELL)
@@ -459,10 +630,10 @@ with tab1:
         "Schilf": 1050.0,
         "Rohrkolben": 1150.0,
         "Torfmoos": 1400.0,
-        "Wasserbüffel": 900.0,
+        "Tierhaltung": 900.0,
         "Photo-Voltaik": 2200.0,
         "Seggen": 700.0
-    }[bewirtschaftung]
+    }.get(bewirtschaftung, 850.0)
 
     erloes_moor = flaechen_groesse * (bisherige_ertraege_pro_ha + nutzung_erloes_pro_ha_jahr)
     netto_ertrag_moor = erloes_moor - kosten_bauer_jahr
