@@ -55,6 +55,24 @@ with tab1:
     tier_vermarktung = st.session_state.get("moor_tier_vermarktung_val", None)
     erntetechnik = st.session_state.get("moor_erntetechnik_val", None)
 
+    # Kompakte Status-Leiste oben (sichtbar ab Schritt 2)
+    if st.session_state.moor_step >= 1:
+        info_teile = [
+            f"**Fläche:** {flaechen_groesse:.1f} ha",
+            f"**Moortyp:** {moor_typ}",
+            f"**Status:** {besitz_status}",
+            f"**Vorher:** {vorher_nutzung}"
+        ]
+        if st.session_state.moor_step == 2:
+            info_teile.append(f"**Bewirtschaftung:** {bewirtschaftung}")
+            if etablierungs_art:
+                etab_text = etablierungs_art
+                if etablierungs_art == "Erstetablierung" and etablierungs_detail:
+                    etab_text += f" ({etablierungs_detail})"
+                info_teile.append(f"**Etablierung:** {etab_text}")
+
+        st.info("📌 **Aktuelle Auswahl:** " + "  |  ".join(info_teile))
+
     # --- SCHRITT 0: STARTMASKE ---
     if st.session_state.moor_step == 0:
         st.subheader("Schritt 1 von 3: Startmaske – Fläche & Ausgangslage")
@@ -240,8 +258,8 @@ with tab1:
                     "Quaderballen",
                     "Bunde",
                     "Loses Langgut",
-                    "Pelletierte Form (Mobile Pelletierungs- bzw. Brikettierungsanlage)",
-                    "Brikettierte Form (Mobile Pelletierungs- bzw. Brikettierungsanlage)"
+                    "Pelletierte Form (mobile Pelletierungsmaschine)",
+                    "Brikettierte Form (mobile Brikettierungsmaschine)"
                 ],
                 key=f"ernteform_{bewirtschaftung}"
             )
@@ -352,30 +370,28 @@ with tab1:
                     key=f"ballen_verwertung_{bewirtschaftung}"
                 )
 
-            # 3) Bunde
+            # 3) Bunde (ohne Papierherstellung)
             elif ernteform_tmp == "Bunde":
                 if bewirtschaftung == "Rohrkolben":
                     basis_verwertung = [
                         "Dämmen und Bauen",
-                        "Werkstoffe & Papier",
+                        "Werkstoffe",
                         "Thermische Verwertung",
                         "Samen",
                         "Fasern",
                         "Gartenbausubstrate",
                         "Einstreu",
-                        "Plattformchemikalien",
-                        "Papier herstellen"
+                        "Plattformchemikalien"
                     ]
                 elif bewirtschaftung == "Schilf":
                     basis_verwertung = [
                         "Dämmen",
-                        "Werkstoffe & Papier",
+                        "Werkstoffe",
                         "Thermische Verwertung",
                         "Kultursubstrate",
                         "Einstreu",
                         "Bio-Aktivkohle",
-                        "Plattformchemikalien",
-                        "Papier herstellen"
+                        "Plattformchemikalien"
                     ]
                 elif bewirtschaftung == "Seggen":
                     basis_verwertung = [
@@ -384,8 +400,7 @@ with tab1:
                         "Einstreu",
                         "Bau- & Dämmstoffe",
                         "Gartenbausubstrate",
-                        "Kohle",
-                        "Papier herstellen"
+                        "Kohle"
                     ]
                 else:  # Rohrglanzgras
                     basis_verwertung = [
@@ -394,9 +409,7 @@ with tab1:
                         "Proteinkonzentrat",
                         "Einstreu",
                         "Thermische Verwertung",
-                        "Papier",
-                        "Bau- & Dämmstoffe",
-                        "Papier herstellen"
+                        "Bau- & Dämmstoffe"
                     ]
 
                 verwertung_tmp = st.selectbox(
@@ -443,7 +456,7 @@ with tab1:
                         key=f"langgut_weiter_{bewirtschaftung}"
                     )
 
-            # 5) Pelletierte oder Brikettierte Form (Mobile Anlage)
+            # 5) Pelletierte oder Brikettierte Form (mobile Maschine)
             else:
                 pellet_optionen = [
                     "Verbrennen",
@@ -492,7 +505,7 @@ with tab1:
                 key="sel_verwertung_torfmoos"
             )
 
-        # D) Nasswiese (neue strukturierte Abfrage)
+        # D) Nasswiese
         elif bewirtschaftung == "Nasswiese":
             verwertung_tmp = st.selectbox(
                 "Welche Nutzung auf der Nasswiese streben Sie an?",
@@ -507,24 +520,21 @@ with tab1:
 
             if verwertung_tmp == "Tierhaltung":
                 tier_art_tmp = st.radio(
-                    "Welche Tierart bzw. Form möchten Sie umsetzen?",
-                    ["Wasserbüffel", "Robustrinder", "Landschaftspflege"],
+                    "Welche Tierart möchten Sie halten?",
+                    ["Wasserbüffel", "Robustrinder"],
                     key="nasswiese_tierart"
                 )
-                if tier_art_tmp != "Landschaftspflege":
-                    tier_haltung_tmp = st.selectbox(
-                        "Wie wird die Bewirtschaftung durchgeführt?",
-                        ["Ganzjährig", "Extensiv", "Vollweidesystem", "Teilweidesystem"],
-                        key="nasswiese_tierhaltung_system"
-                    )
-                    tier_vermarktung_tmp = st.radio(
-                        "Soll das Tier selbst oder als Fleischprodukt verkauft werden?",
-                        ["Tier selbst verkaufen", "Als Fleischprodukt verkaufen"],
-                        key="nasswiese_tier_vermarktung"
-                    )
-                    folge_tmp = f"{tier_art_tmp} – {tier_haltung_tmp} – {tier_vermarktung_tmp}"
-                else:
-                    folge_tmp = "Landschaftspflege"
+                tier_haltung_tmp = st.selectbox(
+                    "Wie wird die Bewirtschaftung durchgeführt?",
+                    ["Ganzjährig", "Extensiv", "Vollweidesystem", "Teilweidesystem"],
+                    key="nasswiese_tierhaltung_system"
+                )
+                tier_vermarktung_tmp = st.radio(
+                    "Wie soll die Nutzung / Vermarktung erfolgen?",
+                    ["Tier selbst verkaufen", "Als Fleischprodukt verkaufen", "Landschaftspflege"],
+                    key="nasswiese_tier_vermarktung"
+                )
+                folge_tmp = f"{tier_art_tmp} – {tier_haltung_tmp} – {tier_vermarktung_tmp}"
 
             elif verwertung_tmp == "Landwirtschaftliche Nutzung":
                 folge_tmp = st.selectbox(
@@ -568,26 +578,23 @@ with tab1:
         elif bewirtschaftung == "Tierhaltung":
             verwertung_tmp = "Tierhaltung"
             tier_art_tmp = st.radio(
-                "Welche Tierart bzw. Form möchten Sie umsetzen?",
-                ["Wasserbüffel", "Robustrinder", "Landschaftspflege"],
+                "Welche Tierart möchten Sie halten?",
+                ["Wasserbüffel", "Robustrinder"],
                 key="tierhaltung_art_direkt"
             )
-            if tier_art_tmp != "Landschaftspflege":
-                tier_haltung_tmp = st.selectbox(
-                    "Wie wird die Bewirtschaftung durchgeführt?",
-                    ["Ganzjährig", "Extensiv", "Vollweidesystem", "Teilweidesystem"],
-                    key="tierhaltung_system_direkt"
-                )
-                tier_vermarktung_tmp = st.radio(
-                    "Soll das Tier selbst oder als Fleischprodukt verkauft werden?",
-                    ["Tier selbst verkaufen", "Als Fleischprodukt verkaufen"],
-                    key="tierhaltung_vermarktung_direkt"
-                )
-                folge_tmp = f"{tier_art_tmp} – {tier_haltung_tmp} – {tier_vermarktung_tmp}"
-            else:
-                folge_tmp = "Landschaftspflege"
+            tier_haltung_tmp = st.selectbox(
+                "Wie wird die Bewirtschaftung durchgeführt?",
+                ["Ganzjährig", "Extensiv", "Vollweidesystem", "Teilweidesystem"],
+                key="tierhaltung_system_direkt"
+            )
+            tier_vermarktung_tmp = st.radio(
+                "Wie soll die Nutzung / Vermarktung erfolgen?",
+                ["Tier selbst verkaufen", "Als Fleischprodukt verkaufen", "Landschaftspflege"],
+                key="tierhaltung_vermarktung_direkt"
+            )
+            folge_tmp = f"{tier_art_tmp} – {tier_haltung_tmp} – {tier_vermarktung_tmp}"
 
-        # Allgemeine Folgeabfragen für Bunde / Ballen / Schwarzerle / Torfmoos
+        # Allgemeine Folgeabfragen
         if verwertung_tmp in ["Dämmen und Bauen", "Bau- & Dämmstoffe"]:
             folge_tmp = st.selectbox(
                 "Welche Dämm- bzw. Bauprodukte möchten Sie herstellen?",
@@ -602,15 +609,14 @@ with tab1:
                 key="folge_schilf_daemmen"
             )
 
-        if verwertung_tmp in ["Werkstoffe & Papier", "Zellulose & Papier", "Papier"]:
+        if verwertung_tmp == "Werkstoffe":
             folge_tmp = st.selectbox(
-                "Welche Werkstoff- bzw. Papiervariante möchten Sie herstellen?",
-                ["Plattenwerkstoffe", "Zellulosefasern für Papier", "Formteile"],
-                key="folge_werkstoffe_papier"
+                "Welche Werkstoffvariante möchten Sie herstellen?",
+                ["Plattenwerkstoffe", "Formteile"],
+                key="folge_werkstoffe"
             )
 
         if verwertung_tmp == "Thermische Verwertung":
-            # Option "Heu" entfernt
             folge_tmp = st.selectbox(
                 "Wie möchten Sie die Biomasse thermisch nutzen?",
                 ["Briketts", "Pellets", "Trockenmasse / Direktverbrennung", "Biogas"],
