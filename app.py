@@ -294,12 +294,29 @@ def format_radio_schilf_option(opt, beste_opt, ist_schilf):
     return opt
 
 
-def render_gruene_selectbox_option(beste_opt, ist_schilf):
+def render_kleinen_gruenen_hinweis(beste_opt, ist_schilf):
     if ist_schilf and beste_opt is not None:
         st.markdown(
-            f"<span style='color:#15803d; font-weight:600;'>{beste_opt}</span>",
+            f"<div style='color:#15803d; font-size:0.78rem; line-height:1.1; margin-top:-0.65rem; margin-bottom:0.55rem;'>{beste_opt}</div>",
             unsafe_allow_html=True
         )
+
+
+def schilf_selectbox(label, options, key, ist_schilf, beste_opt=None, index=None, format_func=None, beste_label=None):
+    default_idx = 0
+    if index is not None:
+        default_idx = index
+    elif ist_schilf and beste_opt in options:
+        default_idx = options.index(beste_opt)
+
+    kwargs = {"index": default_idx, "key": key}
+    if format_func is not None:
+        kwargs["format_func"] = format_func
+
+    val = st.selectbox(label, options, **kwargs)
+    anzeige = beste_label if beste_label is not None else beste_opt
+    render_kleinen_gruenen_hinweis(anzeige, ist_schilf)
+    return val
 
 
 def schilf_ernteformen_fuer_mahd(mahd):
@@ -829,11 +846,12 @@ with tab1:
                     )
                 )
 
-            render_gruene_selectbox_option(beste_ernteform, ist_schilf)
-            ernteform_tmp = st.selectbox(
+            ernteform_tmp = schilf_selectbox(
                 "In welcher Form möchten Sie die Biomasse ernten?",
                 ernteform_optionen,
-                key=f"ernteform_{bewirtschaftung}_{mahd_tmp}"
+                key=f"ernteform_{bewirtschaftung}_{mahd_tmp}",
+                ist_schilf=ist_schilf,
+                beste_opt=beste_ernteform
             )
 
             # 1) Häckselgut
@@ -857,11 +875,12 @@ with tab1:
                         )
                     )
 
-                render_gruene_selectbox_option(beste_verw, ist_schilf)
-                verwertung_tmp = st.selectbox(
+                verwertung_tmp = schilf_selectbox(
                     "Wofür soll das Häckselgut genutzt werden?",
                     bereich_optionen,
-                    key=f"haeckselfeld_bereich_{bewirtschaftung}_{mahd_tmp}"
+                    key=f"haeckselfeld_bereich_{bewirtschaftung}_{mahd_tmp}",
+                    ist_schilf=ist_schilf,
+                    beste_opt=beste_verw
                 )
 
                 if verwertung_tmp == "Thermische Verwertung":
@@ -881,11 +900,12 @@ with tab1:
                             )
                         )
 
-                    render_gruene_selectbox_option(beste_folge, ist_schilf)
-                    folge_tmp = st.selectbox(
+                    folge_tmp = schilf_selectbox(
                         "Welche thermische Verwertung soll erfolgen?",
                         thermisch_haeckselfeld_optionen,
-                        key=f"haeckselfeld_thermisch_{bewirtschaftung}_{mahd_tmp}"
+                        key=f"haeckselfeld_thermisch_{bewirtschaftung}_{mahd_tmp}",
+                        ist_schilf=ist_schilf,
+                        beste_opt=beste_folge
                     )
 
                 elif verwertung_tmp == "Energetische Verwertung":
@@ -912,11 +932,12 @@ with tab1:
                             )
                         )
 
-                    render_gruene_selectbox_option(beste_folge, ist_schilf)
-                    folge_tmp = st.selectbox(
+                    folge_tmp = schilf_selectbox(
                         "Welche energetische Verwertung soll erfolgen?",
                         energie_optionen,
-                        key=f"haeckselfeld_energie_{bewirtschaftung}_{mahd_tmp}"
+                        key=f"haeckselfeld_energie_{bewirtschaftung}_{mahd_tmp}",
+                        ist_schilf=ist_schilf,
+                        beste_opt=beste_folge
                     )
 
                 elif verwertung_tmp == "Bau- und Werkstoffe":
@@ -947,11 +968,12 @@ with tab1:
                             )
                         )
 
-                    render_gruene_selectbox_option(beste_folge, ist_schilf)
-                    folge_tmp = st.selectbox(
+                    folge_tmp = schilf_selectbox(
                         "Welche Verwertung im Bereich Bau- und Werkstoffe soll erfolgen?",
                         stoff_optionen,
-                        key=f"haeckselfeld_stoff_{bewirtschaftung}_{mahd_tmp}"
+                        key=f"haeckselfeld_stoff_{bewirtschaftung}_{mahd_tmp}",
+                        ist_schilf=ist_schilf,
+                        beste_opt=beste_folge
                     )
 
                 elif verwertung_tmp == "Gartenbau und Landwirtschaft":
@@ -975,11 +997,12 @@ with tab1:
                             )
                         )
 
-                    render_gruene_selectbox_option(beste_folge, ist_schilf)
-                    folge_tmp = st.selectbox(
+                    folge_tmp = schilf_selectbox(
                         "Welche Nutzung im Bereich Gartenbau und Landwirtschaft soll erfolgen?",
                         garten_optionen,
-                        key=f"haeckselfeld_garten_{bewirtschaftung}_{mahd_tmp}"
+                        key=f"haeckselfeld_garten_{bewirtschaftung}_{mahd_tmp}",
+                        ist_schilf=ist_schilf,
+                        beste_opt=beste_folge
                     )
 
             # 2) Rundballen / Quaderballen
@@ -997,11 +1020,12 @@ with tab1:
                             )
                         )
 
-                    render_gruene_selectbox_option(beste_bw, ist_schilf)
-                    ballen_winter_tmp = st.selectbox(
+                    ballen_winter_tmp = schilf_selectbox(
                         "Welche Weiterverarbeitung / Pressung für die Ballen (Wintermahd) ist geplant?",
                         ballen_opt_list,
-                        key=f"ballen_winter_opt_{bewirtschaftung}"
+                        key=f"ballen_winter_opt_{bewirtschaftung}",
+                        ist_schilf=ist_schilf,
+                        beste_opt=beste_bw
                     )
 
                     if ballen_winter_tmp != "Keine zusätzliche Verarbeitung":
@@ -1069,11 +1093,12 @@ with tab1:
                             )
                         )
 
-                    render_gruene_selectbox_option(beste_verw, ist_schilf)
-                    verwertung_tmp = st.selectbox(
+                    verwertung_tmp = schilf_selectbox(
                         f"Welche Verwertung für {ernteform_tmp} streben Sie an?",
                         basis_verwertung,
-                        key=f"ballen_verwertung_{bewirtschaftung}_{mahd_tmp}"
+                        key=f"ballen_verwertung_{bewirtschaftung}_{mahd_tmp}",
+                        ist_schilf=ist_schilf,
+                        beste_opt=beste_verw
                     )
 
             # 3) Bunde
@@ -1137,11 +1162,12 @@ with tab1:
                         )
                     )
 
-                render_gruene_selectbox_option(beste_verw, ist_schilf)
-                verwertung_tmp = st.selectbox(
+                verwertung_tmp = schilf_selectbox(
                     "Welche Verwertung für Bunde streben Sie an?",
                     basis_verwertung,
-                    key=f"bunde_verwertung_{bewirtschaftung}_{mahd_tmp}"
+                    key=f"bunde_verwertung_{bewirtschaftung}_{mahd_tmp}",
+                    ist_schilf=ist_schilf,
+                    beste_opt=beste_verw
                 )
 
             # 4) Loses Langgut
@@ -1158,11 +1184,12 @@ with tab1:
                         )
                     )
 
-                render_gruene_selectbox_option(beste_verw, ist_schilf)
-                verwertung_tmp = st.selectbox(
+                verwertung_tmp = schilf_selectbox(
                     "Wie soll das lose Langgut genutzt werden?",
                     langgut_bereiche,
-                    key=f"langgut_bereich_{bewirtschaftung}_{mahd_tmp}"
+                    key=f"langgut_bereich_{bewirtschaftung}_{mahd_tmp}",
+                    ist_schilf=ist_schilf,
+                    beste_opt=beste_verw
                 )
 
                 if verwertung_tmp == "Direkte Nutzung":
@@ -1203,11 +1230,12 @@ with tab1:
                             )
                         )
 
-                    render_gruene_selectbox_option(beste_folge, ist_schilf)
-                    folge_tmp = st.selectbox(
+                    folge_tmp = schilf_selectbox(
                         "Welche direkte Nutzung soll erfolgen?",
                         direkt_optionen,
-                        key=f"langgut_direkt_{bewirtschaftung}_{mahd_tmp}"
+                        key=f"langgut_direkt_{bewirtschaftung}_{mahd_tmp}",
+                        ist_schilf=ist_schilf,
+                        beste_opt=beste_folge
                     )
                 else:
                     if mahd_tmp == "Sommermahd":
@@ -1242,11 +1270,12 @@ with tab1:
                             )
                         )
 
-                    render_gruene_selectbox_option(beste_folge, ist_schilf)
-                    folge_tmp = st.selectbox(
+                    folge_tmp = schilf_selectbox(
                         "Welche Weiterverarbeitung soll erfolgen?",
                         weiter_optionen,
-                        key=f"langgut_weiter_{bewirtschaftung}_{mahd_tmp}"
+                        key=f"langgut_weiter_{bewirtschaftung}_{mahd_tmp}",
+                        ist_schilf=ist_schilf,
+                        beste_opt=beste_folge
                     )
 
             # 5) Pelletierte oder Brikettierte Form (mobile Maschine, nur bei Nicht-Sommermahd)
@@ -1289,11 +1318,12 @@ with tab1:
                         )
                     )
 
-                render_gruene_selectbox_option(beste_verw, ist_schilf)
-                verwertung_tmp = st.selectbox(
+                verwertung_tmp = schilf_selectbox(
                     f"Welche Verwertung für '{ernteform_tmp}' streben Sie an?",
                     pellet_optionen,
-                    key=f"pellet_brikett_verwertung_{bewirtschaftung}_{mahd_tmp}"
+                    key=f"pellet_brikett_verwertung_{bewirtschaftung}_{mahd_tmp}",
+                    ist_schilf=ist_schilf,
+                    beste_opt=beste_verw
                 )
                 folge_tmp = verwertung_tmp
 
@@ -1440,11 +1470,12 @@ with tab1:
                         verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
                     )
                 )
-                render_gruene_selectbox_option(beste_folge, ist_schilf)
-                folge_tmp = st.selectbox(
+                folge_tmp = schilf_selectbox(
                     "Was möchten Sie aus Schilf zum Dämmen herstellen?",
                     schilf_daemm_opts,
-                    key="folge_schilf_daemmen"
+                    key="folge_schilf_daemmen",
+                    ist_schilf=ist_schilf,
+                    beste_opt=beste_folge
                 )
 
             if verwertung_tmp == "Werkstoffe":
@@ -1460,11 +1491,12 @@ with tab1:
                             verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
                         )
                     )
-                render_gruene_selectbox_option(beste_folge, ist_schilf)
-                folge_tmp = st.selectbox(
+                folge_tmp = schilf_selectbox(
                     "Welche Werkstoffvariante möchten Sie herstellen?",
                     werkstoff_opts,
-                    key="folge_werkstoffe"
+                    key="folge_werkstoffe",
+                    ist_schilf=ist_schilf,
+                    beste_opt=beste_folge
                 )
 
             if verwertung_tmp == "Thermische Verwertung" and ernteform_tmp != "Häckselgut":
@@ -1488,11 +1520,12 @@ with tab1:
                             verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
                         )
                     )
-                    render_gruene_selectbox_option(beste_folge, ist_schilf)
-                    folge_tmp = st.selectbox(
+                    folge_tmp = schilf_selectbox(
                         "Wie möchten Sie das Schilf thermisch nutzen?",
                         thermisch_schilf_optionen,
-                        key=f"folge_thermisch_schilf_{mahd_tmp}"
+                        key=f"folge_thermisch_schilf_{mahd_tmp}",
+                        ist_schilf=ist_schilf,
+                        beste_opt=beste_folge
                     )
                 else:
                     folge_tmp = st.selectbox(
@@ -1641,14 +1674,20 @@ with tab1:
                         )
                     )
 
-                if ist_schilf and beste_km is not None:
-                    render_gruene_selectbox_option(f"{beste_km:g} km", ist_schilf)
-                transport_km_tmp = st.selectbox(
+                km_idx = (
+                    distanz_optionen.index(beste_km)
+                    if (ist_schilf and beste_km in distanz_optionen)
+                    else (distanz_optionen.index(transport_km) if transport_km in distanz_optionen else 2)
+                )
+                transport_km_tmp = schilf_selectbox(
                     "Transportentfernung vom Hof zur Verwertungsstelle (km):",
                     distanz_optionen,
+                    key="moor_transport_km",
+                    ist_schilf=ist_schilf,
+                    beste_opt=beste_km,
+                    index=km_idx,
                     format_func=lambda x: f"{x:g} km",
-                    index=distanz_optionen.index(transport_km) if transport_km in distanz_optionen else 2,
-                    key="moor_transport_km"
+                    beste_label=f"{beste_km:g} km" if beste_km is not None else None
                 )
 
         if hat_lager_option:
@@ -1716,12 +1755,18 @@ with tab1:
                         )
                     )
 
-                render_gruene_selectbox_option(beste_la, ist_schilf)
-                lagerung_art_tmp = st.selectbox(
+                la_idx = (
+                    lager_optionen.index(beste_la)
+                    if (ist_schilf and beste_la in lager_optionen)
+                    else (lager_optionen.index(lagerung_art) if lagerung_art in lager_optionen else 0)
+                )
+                lagerung_art_tmp = schilf_selectbox(
                     "Wie sollen die Produkte gelagert werden?",
                     lager_optionen,
-                    index=lager_optionen.index(lagerung_art) if lagerung_art in lager_optionen else 0,
-                    key="moor_lagerung_art"
+                    key="moor_lagerung_art",
+                    ist_schilf=ist_schilf,
+                    beste_opt=beste_la,
+                    index=la_idx
                 )
 
         st.session_state.moor_mahd_zeitpunkt_val = mahd_tmp
