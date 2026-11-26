@@ -21,6 +21,484 @@ def go_next():
     st.session_state.moor_step = min(2, st.session_state.moor_step + 1)
 
 
+def berechne_schilf_netto_pro_ha(
+    flaechen_groesse,
+    bisherige_ertraege_pro_ha,
+    etablierungs_art,
+    etablierungs_detail,
+    mahd_zeitpunkt,
+    ernteform_biomasse,
+    verwertung,
+    folge_auswahl,
+    ballen_winter_option,
+    erntetechnik,
+    transport_bekannt,
+    transport_km,
+    lagerung_geplant,
+    lagerung_art,
+    kaufkosten_gesamt
+):
+    if ernteform_biomasse == "Loses Langgut":
+        if etablierungs_art == "Erstetablierung":
+            etablierung_kosten_pro_ha_jahr = (
+                680.00 if etablierungs_detail == "Anpflanzung mit Jungpflanzen" else 410.00
+            )
+        else:
+            etablierung_kosten_pro_ha_jahr = 380.00
+        laufende_kosten_pro_ha_jahr = 0.0
+    else:
+        if etablierungs_art == "Erstetablierung":
+            etablierung_kosten_pro_ha_jahr = (
+                378.50 if etablierungs_detail == "Anpflanzung mit Jungpflanzen" else 247.22
+            )
+        else:
+            etablierung_kosten_pro_ha_jahr = 224.00
+        laufende_kosten_pro_ha_jahr = 693.75
+
+    sonderkosten_schilf_pro_ha_jahr = 0.0
+    entfaellt_ernte_und_transport = False
+    if verwertung == "Thermische Verwertung" and folge_auswahl == "Ethanol":
+        sonderkosten_schilf_pro_ha_jahr = 2387.00
+        entfaellt_ernte_und_transport = True
+    elif verwertung == "Energetische Verwertung" and folge_auswahl == "Biogasanlage":
+        sonderkosten_schilf_pro_ha_jahr = 1900.00
+        entfaellt_ernte_und_transport = True
+
+    if entfaellt_ernte_und_transport or ernteform_biomasse == "Loses Langgut":
+        erntekosten_pro_ha_jahr = 0.0
+    elif ernteform_biomasse in ["Rundballen", "Quaderballen", "Häckselgut"]:
+        erntekosten_pro_ha_jahr = 410.00
+    elif ernteform_biomasse == "Bunde":
+        erntekosten_pro_ha_jahr = 640.00
+    elif ernteform_biomasse == "Pelletierte Form (mobile Pelletierungsmaschine)":
+        erntekosten_pro_ha_jahr = 2719.43 if mahd_zeitpunkt == "Sommermahd" else 1759.10
+    else:
+        erntekosten_pro_ha_jahr = 350.00
+
+    if ernteform_biomasse in ["Rundballen", "Quaderballen"] and mahd_zeitpunkt == "Wintermahd":
+        erntekosten_pro_ha_jahr += {
+            "Pellets": 569.97,
+            "Briketts": 588.00,
+            "Pressen": 392.00
+        }.get(ballen_winter_option, 0.0)
+
+    ist_mobile_pellet_oder_brikett = ernteform_biomasse in [
+        "Pelletierte Form (mobile Pelletierungsmaschine)",
+        "Brikettierte Form (mobile Brikettierungsmaschine)"
+    ]
+    endprodukt_kosten_pro_ha_jahr = 0.0
+    if not ist_mobile_pellet_oder_brikett:
+        if (
+            folge_auswahl in ["Pellets", "Pellets und Briketts", "Stationäre Pelletieranlage", "Brennstoff-Pellets / Briketts"]
+            or ballen_winter_option == "Pellets"
+        ):
+            endprodukt_kosten_pro_ha_jahr = 1000.00
+        elif folge_auswahl in ["Briketts"] or ballen_winter_option == "Briketts":
+            endprodukt_kosten_pro_ha_jahr = 800.00
+        elif (
+            folge_auswahl in ["Formteile", "Plattenwerkstoffe", "Faserplatten und Biokunststoffe"]
+            or verwertung in ["Werkstoffe", "Faserplatten & Dämmstoffe"]
+        ):
+            endprodukt_kosten_pro_ha_jahr = 920.00
+        elif folge_auswahl == "Biokunststoffe" or verwertung == "Biokunststoffe":
+            endprodukt_kosten_pro_ha_jahr = 1280.00
+        elif (
+            folge_auswahl in ["Einblasdämmung", "Dämmmatten", "Dämmstoffe (Einblasdämmung / Dämmmatten)"]
+            or verwertung == "Dämm- und Baustoffe"
+        ):
+            endprodukt_kosten_pro_ha_jahr = 11200.00
+
+    transport_kosten_pro_ha_jahr = 0.0
+    if not entfaellt_ernte_und_transport:
+        ist_pellet_brikett_produkt = (
+            ist_mobile_pellet_oder_brikett
+            or folge_auswahl in [
+                "Pellets",
+                "Briketts",
+                "Pellets und Briketts",
+                "Stationäre Pelletieranlage",
+                "Brennstoff-Pellets / Briketts"
+            ]
+            or ballen_winter_option in ["Pellets", "Briketts"]
+        )
+        ist_dachschilf_bunde_langgut = (
+            verwertung == "Dachreed"
+            or folge_auswahl == "Sortierung zu Dachreetbunden"
+            or ernteform_biomasse in ["Bunde", "Loses Langgut"]
+        )
+
+        if ernteform_biomasse == "Häckselgut":
+            if mahd_zeitpunkt == "Sommermahd":
+                transport_kosten_pro_ha_jahr = (
+                    {2.5: 137.87, 5.0: 165.14, 10.0: 221.19, 20.0: 331.79, 30.0: 443.90, 50.0: 666.60}.get(transport_km, 387.85)
+                    if transport_bekannt == "Ja" else 387.85
+                )
+            else:
+                transport_kosten_pro_ha_jahr = (
+                    {2.5: 89.18, 5.0: 106.82, 10.0: 143.08, 20.0: 214.62, 30.0: 287.14, 50.0: 431.20}.get(transport_km, 250.88)
+                    if transport_bekannt == "Ja" else 250.88
+                )
+        elif ist_dachschilf_bunde_langgut:
+            if mahd_zeitpunkt == "Sommermahd":
+                if flaechen_groesse >= 2.5:
+                    transport_kosten_pro_ha_jahr = (
+                        {2.5: 89.39, 5.0: 99.99, 10.0: 122.72, 20.0: 166.65, 30.0: 212.10, 50.0: 299.997}.get(transport_km, 189.76)
+                        if transport_bekannt == "Ja" else 189.76
+                    )
+                else:
+                    transport_kosten_pro_ha_jahr = (
+                        {2.5: 212.10, 5.0: 236.34, 10.0: 284.82, 20.0: 383.30, 30.0: 480.26, 50.0: 677.21}.get(transport_km, 431.78)
+                        if transport_bekannt == "Ja" else 431.78
+                    )
+            else:
+                if flaechen_groesse >= 2.5:
+                    transport_kosten_pro_ha_jahr = (
+                        {2.5: 57.82, 5.0: 64.68, 10.0: 79.38, 20.0: 107.80, 30.0: 137.20, 50.0: 194.04}.get(transport_km, 122.50)
+                        if transport_bekannt == "Ja" else 122.50
+                    )
+                else:
+                    transport_kosten_pro_ha_jahr = (
+                        {2.5: 137.20, 5.0: 152.88, 10.0: 184.24, 20.0: 247.94, 30.0: 310.66, 50.0: 438.06}.get(transport_km, 279.30)
+                        if transport_bekannt == "Ja" else 279.30
+                    )
+        elif ist_pellet_brikett_produkt and mahd_zeitpunkt == "Wintermahd":
+            transport_kosten_pro_ha_jahr = (
+                {2.5: 22.54, 5.0: 26.46, 10.0: 33.32, 20.0: 47.04, 30.0: 59.78, 50.0: 87.22}.get(transport_km, 53.41)
+                if transport_bekannt == "Ja" else 53.41
+            )
+        elif ernteform_biomasse in ["Rundballen", "Quaderballen"]:
+            if mahd_zeitpunkt == "Sommermahd":
+                transport_kosten_pro_ha_jahr = (
+                    {2.5: 86.36, 5.0: 98.48, 10.0: 119.69, 20.0: 163.62, 30.0: 207.56, 50.0: 296.94}.get(transport_km, 185.59)
+                    if transport_bekannt == "Ja" else 185.59
+                )
+            else:
+                transport_kosten_pro_ha_jahr = (
+                    {2.5: 55.86, 5.0: 63.70, 10.0: 77.42, 20.0: 105.84, 30.0: 134.26, 50.0: 192.08}.get(transport_km, 120.05)
+                    if transport_bekannt == "Ja" else 120.05
+                )
+        elif transport_bekannt == "Ja":
+            transport_kosten_pro_ha_jahr = transport_km * 3.5
+
+    lager_kosten_pro_ha_jahr = 0.0
+    if lagerung_geplant == "Ja" and ernteform_biomasse not in ["Bunde", "Loses Langgut"]:
+        ist_pellet_brikett_lager = (
+            ist_mobile_pellet_oder_brikett
+            or folge_auswahl in [
+                "Pellets",
+                "Briketts",
+                "Pellets und Briketts",
+                "Stationäre Pelletieranlage",
+                "Brennstoff-Pellets / Briketts"
+            ]
+            or ballen_winter_option in ["Pellets", "Briketts"]
+        )
+        if ist_pellet_brikett_lager:
+            if lagerung_art == "In einer Halle":
+                lager_kosten_pro_ha_jahr = 178.01 if mahd_zeitpunkt == "Sommermahd" else 115.15
+        elif ernteform_biomasse == "Häckselgut":
+            if mahd_zeitpunkt == "Sommermahd":
+                lager_kosten_pro_ha_jahr = {"In einer Halle": 227.25, "Auf einer freien Fläche mit Abdeckung": 86.36}.get(lagerung_art, 0.0)
+            else:
+                lager_kosten_pro_ha_jahr = {"In einer Halle": 147.00, "Auf einer freien Fläche mit Abdeckung": 55.86}.get(lagerung_art, 0.0)
+        elif ernteform_biomasse in ["Rundballen", "Quaderballen"]:
+            if mahd_zeitpunkt == "Sommermahd":
+                lager_kosten_pro_ha_jahr = {"In einer Halle": 386.33, "In einem Altgebäude": 166.65, "Auf einer freien Fläche mit Abdeckung": 80.30}.get(lagerung_art, 0.0)
+            else:
+                lager_kosten_pro_ha_jahr = {"In einer Halle": 249.90, "In einem Altgebäude": 107.80, "Auf einer freien Fläche mit Abdeckung": 51.94}.get(lagerung_art, 0.0)
+        else:
+            lager_kosten_pro_ha_jahr = {"In einer Halle": 120.0, "In einem Altgebäude": 65.0, "Auf einer freien Fläche mit Abdeckung": 35.0}.get(lagerung_art, 0.0)
+
+    ist_sommer = (mahd_zeitpunkt == "Sommermahd")
+    nutzung_erloes_pro_ha_jahr = 1050.0
+
+    if verwertung == "Dachreed" or folge_auswahl == "Sortierung zu Dachreetbunden":
+        nutzung_erloes_pro_ha_jahr = 4704.00
+    elif verwertung == "Dämmplatten" or folge_auswahl in ["Dämmplatten", "Dämmplatten & Leichtbaumatten"]:
+        nutzung_erloes_pro_ha_jahr = 4410.00
+    elif folge_auswahl in ["Einblasdämmung", "Dämmmatten"]:
+        nutzung_erloes_pro_ha_jahr = 13600.00
+    elif folge_auswahl == "Putzträger":
+        nutzung_erloes_pro_ha_jahr = 1750.00
+    elif folge_auswahl == "Zuschlagstoff für Lehm- und Kalkputze":
+        nutzung_erloes_pro_ha_jahr = 1400.00
+    elif folge_auswahl == "Papier- und Kartonherstellung" or verwertung == "Papier herstellen":
+        nutzung_erloes_pro_ha_jahr = 1127.00
+    elif folge_auswahl in ["Plattenwerkstoffe", "Faserplatten und Biokunststoffe"] or verwertung == "Faserplatten & Dämmstoffe":
+        nutzung_erloes_pro_ha_jahr = 632.50 if ist_sommer else 2400.00
+    elif folge_auswahl == "Formteile":
+        nutzung_erloes_pro_ha_jahr = 715.00 if ist_sommer else 1440.00
+    elif (
+        ist_mobile_pellet_oder_brikett
+        or folge_auswahl in [
+            "Pellets",
+            "Briketts",
+            "Pellets und Briketts",
+            "Stationäre Pelletieranlage",
+            "Brennstoff-Pellets / Briketts"
+        ]
+        or ballen_winter_option in ["Pellets", "Briketts"]
+    ):
+        nutzung_erloes_pro_ha_jahr = 2100.00
+    elif verwertung == "Thermische Verwertung" and folge_auswahl == "Verbrennung":
+        if ernteform_biomasse == "Häckselgut":
+            nutzung_erloes_pro_ha_jahr = 1430.80
+        elif ernteform_biomasse in ["Rundballen", "Quaderballen"]:
+            nutzung_erloes_pro_ha_jahr = 950.60 if etablierungs_art == "Erstetablierung" else 676.20
+    elif folge_auswahl == "Heu":
+        nutzung_erloes_pro_ha_jahr = 211.50 if ist_sommer else 395.25
+    elif folge_auswahl in ["Biogasproduktion", "Biogassubstrat", "Biogasanlage", "Biogas"]:
+        nutzung_erloes_pro_ha_jahr = 100.00
+    elif verwertung in ["Kultursubstrate", "Torfersatz in Kultursubstraten"]:
+        nutzung_erloes_pro_ha_jahr = 375.00 if ist_sommer else 1200.00
+    elif folge_auswahl == "Torf- und Kompostersatz":
+        nutzung_erloes_pro_ha_jahr = 275.00 if ist_sommer else 480.00
+    elif folge_auswahl == "Mulchmaterial" or verwertung == "Mulch-Pellets":
+        nutzung_erloes_pro_ha_jahr = 225.00 if ist_sommer else 720.00
+    elif verwertung in ["Einstreu", "Tiereinstreu"] or folge_auswahl in ["Einstreu", "Tiereinstreu"]:
+        nutzung_erloes_pro_ha_jahr = 720.00
+    elif folge_auswahl in ["Raufutter", "Silage"] or verwertung == "Raufutterersatz":
+        nutzung_erloes_pro_ha_jahr = 500.00
+    elif folge_auswahl == "Dünger" or verwertung == "Organischer Dünger":
+        nutzung_erloes_pro_ha_jahr = 300.00 if ist_sommer else 160.00
+
+    kauf_annuitaet_pro_ha = (kaufkosten_gesamt / 10.0) / flaechen_groesse if flaechen_groesse > 0 else 0.0
+    kosten_pro_ha = (
+        etablierung_kosten_pro_ha_jahr
+        + laufende_kosten_pro_ha_jahr
+        + sonderkosten_schilf_pro_ha_jahr
+        + erntekosten_pro_ha_jahr
+        + endprodukt_kosten_pro_ha_jahr
+        + transport_kosten_pro_ha_jahr
+        + lager_kosten_pro_ha_jahr
+        + kauf_annuitaet_pro_ha
+    )
+    erloes_pro_ha = bisherige_ertraege_pro_ha + nutzung_erloes_pro_ha_jahr
+    return (erloes_pro_ha - kosten_pro_ha) * flaechen_groesse
+
+
+def beste_schilf_option_ermitteln(optionen, bewertungs_fn):
+    bester_wert = None
+    beste_opt = None
+    for opt in optionen:
+        wert = bewertungs_fn(opt)
+        if bester_wert is None or wert > bester_wert:
+            bester_wert = wert
+            beste_opt = opt
+    return beste_opt, bester_wert
+
+
+def format_schilf_option(opt, beste_opt, ist_schilf):
+    if ist_schilf and opt == beste_opt:
+        return f"🟢 :green[{opt} (Höchster Netto-Ertrag)]"
+    return opt
+
+
+def render_schilf_empfehlung_hinweis(beste_opt, bester_wert, ist_schilf):
+    if ist_schilf and beste_opt is not None:
+        st.markdown(
+            f"<span style='color:#15803d; font-weight:600;'>"
+            f"✓ Beste Option für maximalen Netto-Ertrag: {beste_opt} ({bester_wert:,.2f} €/Jahr)"
+            f"</span>",
+            unsafe_allow_html=True
+        )
+
+
+def schilf_ernteformen_fuer_mahd(mahd):
+    opts = ["Häckselgut", "Rundballen", "Quaderballen", "Bunde", "Loses Langgut"]
+    if mahd != "Sommermahd":
+        opts.extend([
+            "Pelletierte Form (mobile Pelletierungsmaschine)",
+            "Brikettierte Form (mobile Brikettierungsmaschine)"
+        ])
+    return opts
+
+
+def schilf_pfade_fuer(mahd, ernteform, flaechen_groesse):
+    pfade = []
+    if ernteform == "Häckselgut":
+        bereiche = ["Energetische Verwertung", "Bau- und Werkstoffe", "Gartenbau und Landwirtschaft"]
+        if mahd != "Sommermahd":
+            bereiche.append("Thermische Verwertung")
+        for b in bereiche:
+            if b == "Thermische Verwertung":
+                folgen = ["Verbrennung"] + (["Pellets", "Briketts"] if mahd != "Sommermahd" else [])
+            elif b == "Energetische Verwertung":
+                folgen = []
+                if mahd == "Sommermahd":
+                    folgen.append("Biogasproduktion")
+                if mahd == "Wintermahd":
+                    folgen.append("Direkte Verbrennung")
+                if mahd != "Sommermahd":
+                    folgen.append("Pellets und Briketts")
+                folgen.append("Zellulose-Ethanol")
+                if mahd == "Sommermahd":
+                    folgen.append("Biogasanlage")
+            elif b == "Bau- und Werkstoffe":
+                if mahd == "Sommermahd":
+                    folgen = ["Dämmplatten", "Faserplatten und Biokunststoffe", "Papier- und Kartonherstellung"]
+                else:
+                    folgen = [
+                        "Einblasdämmung",
+                        "Dämmplatten & Leichtbaumatten",
+                        "Zuschlagstoff für Lehm- und Kalkputze",
+                        "Faserplatten und Biokunststoffe",
+                        "Papier- und Kartonherstellung"
+                    ]
+            else:
+                folgen = ["Torf- und Kompostersatz", "Mulchmaterial", "Pflanzenkohle & Aktivkohle"]
+                if mahd == "Wintermahd":
+                    folgen.insert(2, "Tiereinstreu")
+            for f in folgen:
+                pfade.append((b, f, None))
+
+    elif ernteform in ["Rundballen", "Quaderballen"]:
+        ballen_opts = ["Keine zusätzliche Verarbeitung", "Pellets", "Briketts", "Pressen"] if mahd == "Wintermahd" else ["Keine zusätzliche Verarbeitung"]
+        for bw in ballen_opts:
+            if bw != "Keine zusätzliche Verarbeitung":
+                pfade.append((bw, bw, bw))
+            else:
+                verw_list = (
+                    ["Dämmplatten", "Kultursubstrate", "Plattformchemikalien"]
+                    if mahd == "Sommermahd"
+                    else ["Dämmen", "Werkstoffe", "Thermische Verwertung", "Kultursubstrate", "Einstreu", "Bio-Aktivkohle", "Plattformchemikalien"]
+                )
+                for v in verw_list:
+                    if v == "Dämmen":
+                        for f in ["Dämmplatten", "Putzträger"]:
+                            pfade.append((v, f, bw))
+                    elif v == "Werkstoffe":
+                        for f in ["Plattenwerkstoffe", "Formteile"]:
+                            pfade.append((v, f, bw))
+                    elif v == "Thermische Verwertung":
+                        t_opts = ["Verbrennung", "Ethanol"] + (["Briketts", "Pellets"] if mahd != "Sommermahd" else [])
+                        for f in t_opts:
+                            pfade.append((v, f, bw))
+                    else:
+                        pfade.append((v, None, bw))
+
+    elif ernteform == "Bunde":
+        verw_list = (
+            ["Dämmplatten", "Kultursubstrate", "Plattformchemikalien"]
+            if mahd == "Sommermahd"
+            else ["Dachreed", "Dämmen", "Werkstoffe", "Thermische Verwertung", "Kultursubstrate", "Einstreu", "Bio-Aktivkohle", "Plattformchemikalien"]
+        )
+        for v in verw_list:
+            if v == "Dämmen":
+                for f in ["Dämmplatten", "Putzträger"]:
+                    pfade.append((v, f, None))
+            elif v == "Werkstoffe":
+                for f in ["Plattenwerkstoffe", "Formteile"]:
+                    pfade.append((v, f, None))
+            elif v == "Thermische Verwertung":
+                t_opts = ["Verbrennung", "Ethanol"] + (["Briketts", "Pellets"] if mahd != "Sommermahd" else [])
+                for f in t_opts:
+                    pfade.append((v, f, None))
+            else:
+                pfade.append((v, None, None))
+
+    elif ernteform == "Loses Langgut":
+        direkt = (
+            ["Raufutter", "Heu", "Silage", "Dünger", "Mulchmaterial"]
+            if mahd == "Sommermahd"
+            else ["Heu", "Einstreu", "Dünger", "Mulchmaterial"]
+        )
+        for f in direkt:
+            pfade.append(("Direkte Nutzung", f, None))
+        weiter = (
+            ["Biogassubstrat"]
+            if mahd == "Sommermahd"
+            else ["Stationäre Pelletieranlage", "Briketts", "Einblasdämmung", "Biogassubstrat", "Pflanzenkohle", "Sortierung zu Dachreetbunden"]
+        )
+        for f in weiter:
+            pfade.append(("Weiterverarbeitung", f, None))
+
+    else:
+        pellet_opts = [
+            "Verbrennen",
+            "Tiereinstreu",
+            "Organischer Dünger",
+            "Torfersatz in Kultursubstraten",
+            "Mulch-Pellets",
+            "Biokunststoffe & Spritzguss",
+            "Faserplatten & Dämmstoffe",
+            "Pflanzenkohle & Aktivkohle",
+            "Papier herstellen"
+        ]
+        for v in pellet_opts:
+            pfade.append((v, v, None))
+
+    return pfade
+
+
+def max_netto_fuer_schilf_teilbaum(
+    flaechen_groesse,
+    bisherige_ertraege_pro_ha,
+    kaufkosten_gesamt,
+    etab_art=None,
+    etab_detail=None,
+    mahd=None,
+    ernteform=None,
+    verwertung=None,
+    folge=None,
+    ballen_winter=None,
+    transport_bekannt=None,
+    transport_km=None,
+    lagerung_geplant=None,
+    lagerung_art=None
+):
+    etab_kombis = (
+        [(etab_art, etab_detail)]
+        if etab_art is not None
+        else [
+            ("Natürliche Sukzession", None),
+            ("Erstetablierung", "Aussaat"),
+            ("Erstetablierung", "Anpflanzung mit Jungpflanzen")
+        ]
+    )
+    mahd_liste = [mahd] if mahd is not None else ["Sommermahd", "Wintermahd"]
+
+    bester_netto = None
+    for ea, ed in etab_kombis:
+        for m in mahd_liste:
+            ef_liste = [ernteform] if ernteform is not None else schilf_ernteformen_fuer_mahd(m)
+            for ef in ef_liste:
+                alle_pfade = schilf_pfade_fuer(m, ef, flaechen_groesse)
+                for v, f, bw in alle_pfade:
+                    if verwertung is not None and v != verwertung:
+                        continue
+                    if folge is not None and f != folge:
+                        continue
+                    if ballen_winter is not None and bw != ballen_winter:
+                        continue
+
+                    tb = transport_bekannt if transport_bekannt is not None else "Ja"
+                    tk = transport_km if transport_km is not None else 2.5
+                    lg = lagerung_geplant if lagerung_geplant is not None else "Nein"
+                    la = lagerung_art if lagerung_art is not None else None
+
+                    netto = berechne_schilf_netto_pro_ha(
+                        flaechen_groesse=flaechen_groesse,
+                        bisherige_ertraege_pro_ha=bisherige_ertraege_pro_ha,
+                        etablierungs_art=ea,
+                        etablierungs_detail=ed,
+                        mahd_zeitpunkt=m,
+                        ernteform_biomasse=ef,
+                        verwertung=v,
+                        folge_auswahl=f,
+                        ballen_winter_option=bw,
+                        erntetechnik=None,
+                        transport_bekannt=tb,
+                        transport_km=tk,
+                        lagerung_geplant=lg,
+                        lagerung_art=la,
+                        kaufkosten_gesamt=kaufkosten_gesamt
+                    )
+                    if bester_netto is None or netto > bester_netto:
+                        bester_netto = netto
+    return bester_netto if bester_netto is not None else 0.0
+
+
 tab1, tab2, tab3 = st.tabs([
     "🌱 Moor-Berechnung",
     "⚡ BECCS-Berechnung",
@@ -228,22 +706,49 @@ with tab1:
             key="input_bewirtschaftung"
         )
 
+        ist_schilf_step1 = (bew_tmp == "Schilf")
         etab_tmp = None
         etab_detail_tmp = None
         if bew_tmp not in ["Tierhaltung", "Photo-Voltaik"]:
+            etab_optionen = ["Natürliche Sukzession", "Erstetablierung"]
+            beste_etab, bester_etab_wert = (None, None)
+            if ist_schilf_step1:
+                beste_etab, bester_etab_wert = beste_schilf_option_ermitteln(
+                    etab_optionen,
+                    lambda opt: max_netto_fuer_schilf_teilbaum(
+                        flaechen_groesse, ertrag_tmp, kaufkosten_gesamt, etab_art=opt
+                    )
+                )
+
             etab_tmp = st.radio(
                 "Möchten Sie natürliche Sukzession oder eine Erstetablierung durchführen?",
-                ["Natürliche Sukzession", "Erstetablierung"],
+                etab_optionen,
                 index=0 if etablierungs_art != "Erstetablierung" else 1,
+                format_func=lambda opt: format_schilf_option(opt, beste_etab, ist_schilf_step1),
                 key="input_etablierung"
             )
+            render_schilf_empfehlung_hinweis(beste_etab, bester_etab_wert, ist_schilf_step1)
+
             if etab_tmp == "Erstetablierung":
+                detail_optionen = ["Aussaat", "Anpflanzung mit Jungpflanzen"]
+                beste_detail, bester_detail_wert = (None, None)
+                if ist_schilf_step1:
+                    beste_detail, bester_detail_wert = beste_schilf_option_ermitteln(
+                        detail_optionen,
+                        lambda opt: max_netto_fuer_schilf_teilbaum(
+                            flaechen_groesse, ertrag_tmp, kaufkosten_gesamt,
+                            etab_art="Erstetablierung", etab_detail=opt
+                        )
+                    )
+
                 etab_detail_tmp = st.radio(
                     "Wie erfolgt die Erstetablierung?",
-                    ["Aussaat", "Anpflanzung mit Jungpflanzen"],
+                    detail_optionen,
                     index=0 if etablierungs_detail != "Anpflanzung mit Jungpflanzen" else 1,
+                    format_func=lambda opt: format_schilf_option(opt, beste_detail, ist_schilf_step1),
                     key="input_etablierung_detail"
                 )
+                render_schilf_empfehlung_hinweis(beste_detail, bester_detail_wert, ist_schilf_step1)
 
         st.markdown("---")
         if st.button("Weiter →", type="primary", key="btn_weiter_1"):
@@ -264,6 +769,7 @@ with tab1:
 
         st.subheader("Schritt 3 von 3: Ernteform, Verwertung, Logistik & Auswertung")
 
+        ist_schilf = (bewirtschaftung == "Schilf")
         mahd_tmp = mahd_zeitpunkt
         ernteform_tmp = None
         schwarzerle_tmp = None
@@ -283,11 +789,24 @@ with tab1:
 
         # A) Rohrglanzgras, Schilf, Rohrkolben, Seggen
         if bewirtschaftung in ["Rohrglanzgras", "Schilf", "Rohrkolben", "Seggen"]:
+            mahd_optionen = ["Sommermahd", "Wintermahd"]
+            beste_mahd, bester_mahd_wert = (None, None)
+            if ist_schilf:
+                beste_mahd, bester_mahd_wert = beste_schilf_option_ermitteln(
+                    mahd_optionen,
+                    lambda opt: max_netto_fuer_schilf_teilbaum(
+                        flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                        etab_art=etablierungs_art, etab_detail=etablierungs_detail, mahd=opt
+                    )
+                )
+
             mahd_tmp = st.radio(
                 f"Wann erfolgt die Mahd bei {bewirtschaftung}?",
-                ["Sommermahd", "Wintermahd"],
+                mahd_optionen,
+                format_func=lambda opt: format_schilf_option(opt, beste_mahd, ist_schilf),
                 key=f"mahd_{bewirtschaftung}"
             )
+            render_schilf_empfehlung_hinweis(beste_mahd, bester_mahd_wert, ist_schilf)
 
             ernteform_optionen = [
                 "Häckselgut",
@@ -302,11 +821,24 @@ with tab1:
                     "Brikettierte Form (mobile Brikettierungsmaschine)"
                 ])
 
+            beste_ernteform, bester_ernteform_wert = (None, None)
+            if ist_schilf:
+                beste_ernteform, bester_ernteform_wert = beste_schilf_option_ermitteln(
+                    ernteform_optionen,
+                    lambda opt: max_netto_fuer_schilf_teilbaum(
+                        flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                        etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                        mahd=mahd_tmp, ernteform=opt
+                    )
+                )
+
             ernteform_tmp = st.selectbox(
                 "In welcher Form möchten Sie die Biomasse ernten?",
                 ernteform_optionen,
+                format_func=lambda opt: format_schilf_option(opt, beste_ernteform, ist_schilf),
                 key=f"ernteform_{bewirtschaftung}_{mahd_tmp}"
             )
+            render_schilf_empfehlung_hinweis(beste_ernteform, bester_ernteform_wert, ist_schilf)
 
             # 1) Häckselgut
             if ernteform_tmp == "Häckselgut":
@@ -318,21 +850,49 @@ with tab1:
                 if not (bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd"):
                     bereich_optionen.append("Thermische Verwertung")
 
+                beste_verw, bester_verw_wert = (None, None)
+                if ist_schilf:
+                    beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                        bereich_optionen,
+                        lambda opt: max_netto_fuer_schilf_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                            mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt
+                        )
+                    )
+
                 verwertung_tmp = st.selectbox(
                     "Wofür soll das Häckselgut genutzt werden?",
                     bereich_optionen,
+                    format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                     key=f"haeckselfeld_bereich_{bewirtschaftung}_{mahd_tmp}"
                 )
+                render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
 
                 if verwertung_tmp == "Thermische Verwertung":
                     thermisch_haeckselfeld_optionen = ["Verbrennung"]
                     if mahd_tmp != "Sommermahd":
                         thermisch_haeckselfeld_optionen.extend(["Pellets", "Briketts"])
+
+                    beste_folge, bester_folge_wert = (None, None)
+                    if ist_schilf:
+                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                            thermisch_haeckselfeld_optionen,
+                            lambda opt: max_netto_fuer_schilf_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                                mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+
                     folge_tmp = st.selectbox(
                         "Welche thermische Verwertung soll erfolgen?",
                         thermisch_haeckselfeld_optionen,
+                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"haeckselfeld_thermisch_{bewirtschaftung}_{mahd_tmp}"
                     )
+                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
                 elif verwertung_tmp == "Energetische Verwertung":
                     energie_optionen = []
@@ -346,11 +906,25 @@ with tab1:
                     if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
                         energie_optionen.append("Biogasanlage")
 
+                    beste_folge, bester_folge_wert = (None, None)
+                    if ist_schilf:
+                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                            energie_optionen,
+                            lambda opt: max_netto_fuer_schilf_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                                mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+
                     folge_tmp = st.selectbox(
                         "Welche energetische Verwertung soll erfolgen?",
                         energie_optionen,
+                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"haeckselfeld_energie_{bewirtschaftung}_{mahd_tmp}"
                     )
+                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
                 elif verwertung_tmp == "Bau- und Werkstoffe":
                     if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
@@ -367,11 +941,26 @@ with tab1:
                             "Faserplatten und Biokunststoffe",
                             "Papier- und Kartonherstellung"
                         ]
+
+                    beste_folge, bester_folge_wert = (None, None)
+                    if ist_schilf:
+                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                            stoff_optionen,
+                            lambda opt: max_netto_fuer_schilf_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                                mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+
                     folge_tmp = st.selectbox(
                         "Welche Verwertung im Bereich Bau- und Werkstoffe soll erfolgen?",
                         stoff_optionen,
+                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"haeckselfeld_stoff_{bewirtschaftung}_{mahd_tmp}"
                     )
+                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
                 elif verwertung_tmp == "Gartenbau und Landwirtschaft":
                     garten_optionen = [
@@ -382,20 +971,49 @@ with tab1:
                     if mahd_tmp == "Wintermahd":
                         garten_optionen.insert(2, "Tiereinstreu")
 
+                    beste_folge, bester_folge_wert = (None, None)
+                    if ist_schilf:
+                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                            garten_optionen,
+                            lambda opt: max_netto_fuer_schilf_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                                mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+
                     folge_tmp = st.selectbox(
                         "Welche Nutzung im Bereich Gartenbau und Landwirtschaft soll erfolgen?",
                         garten_optionen,
+                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"haeckselfeld_garten_{bewirtschaftung}_{mahd_tmp}"
                     )
+                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
             # 2) Rundballen / Quaderballen
             elif ernteform_tmp in ["Rundballen", "Quaderballen"]:
                 if mahd_tmp == "Wintermahd":
+                    ballen_opt_list = ["Keine zusätzliche Verarbeitung", "Pellets", "Briketts", "Pressen"]
+                    beste_bw, bester_bw_wert = (None, None)
+                    if ist_schilf:
+                        beste_bw, bester_bw_wert = beste_schilf_option_ermitteln(
+                            ballen_opt_list,
+                            lambda opt: max_netto_fuer_schilf_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                                mahd=mahd_tmp, ernteform=ernteform_tmp, ballen_winter=opt
+                            )
+                        )
+
                     ballen_winter_tmp = st.selectbox(
                         "Welche Weiterverarbeitung / Pressung für die Ballen (Wintermahd) ist geplant?",
-                        ["Keine zusätzliche Verarbeitung", "Pellets", "Briketts", "Pressen"],
+                        ballen_opt_list,
+                        format_func=lambda opt: format_schilf_option(opt, beste_bw, ist_schilf),
                         key=f"ballen_winter_opt_{bewirtschaftung}"
                     )
+                    render_schilf_empfehlung_hinweis(beste_bw, bester_bw_wert, ist_schilf)
+
                     if ballen_winter_tmp != "Keine zusätzliche Verarbeitung":
                         ballen_endprodukt_gewuenscht = True
                         verwertung_tmp = ballen_winter_tmp
@@ -449,11 +1067,25 @@ with tab1:
                             "Bau- & Dämmstoffe"
                         ]
 
+                    beste_verw, bester_verw_wert = (None, None)
+                    if ist_schilf:
+                        beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                            basis_verwertung,
+                            lambda opt: max_netto_fuer_schilf_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                                mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=opt, ballen_winter=ballen_winter_tmp
+                            )
+                        )
+
                     verwertung_tmp = st.selectbox(
                         f"Welche Verwertung für {ernteform_tmp} streben Sie an?",
                         basis_verwertung,
+                        format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                         key=f"ballen_verwertung_{bewirtschaftung}_{mahd_tmp}"
                     )
+                    render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
 
             # 3) Bunde
             elif ernteform_tmp == "Bunde":
@@ -505,19 +1137,46 @@ with tab1:
                         "Bau- & Dämmstoffe"
                     ]
 
+                beste_verw, bester_verw_wert = (None, None)
+                if ist_schilf:
+                    beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                        basis_verwertung,
+                        lambda opt: max_netto_fuer_schilf_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                            mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt
+                        )
+                    )
+
                 verwertung_tmp = st.selectbox(
                     "Welche Verwertung für Bunde streben Sie an?",
                     basis_verwertung,
+                    format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                     key=f"bunde_verwertung_{bewirtschaftung}_{mahd_tmp}"
                 )
+                render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
 
             # 4) Loses Langgut
             elif ernteform_tmp == "Loses Langgut":
+                langgut_bereiche = ["Direkte Nutzung", "Weiterverarbeitung"]
+                beste_verw, bester_verw_wert = (None, None)
+                if ist_schilf:
+                    beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                        langgut_bereiche,
+                        lambda opt: max_netto_fuer_schilf_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                            mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt
+                        )
+                    )
+
                 verwertung_tmp = st.selectbox(
                     "Wie soll das lose Langgut genutzt werden?",
-                    ["Direkte Nutzung", "Weiterverarbeitung"],
+                    langgut_bereiche,
+                    format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                     key=f"langgut_bereich_{bewirtschaftung}_{mahd_tmp}"
                 )
+                render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
 
                 if verwertung_tmp == "Direkte Nutzung":
                     if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
@@ -544,11 +1203,26 @@ with tab1:
                             "Dünger",
                             "Mulchmaterial"
                         ]
+
+                    beste_folge, bester_folge_wert = (None, None)
+                    if ist_schilf:
+                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                            direkt_optionen,
+                            lambda opt: max_netto_fuer_schilf_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                                mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+
                     folge_tmp = st.selectbox(
                         "Welche direkte Nutzung soll erfolgen?",
                         direkt_optionen,
+                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"langgut_direkt_{bewirtschaftung}_{mahd_tmp}"
                     )
+                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
                 else:
                     if mahd_tmp == "Sommermahd":
                         if bewirtschaftung == "Schilf":
@@ -570,11 +1244,25 @@ with tab1:
                         if bewirtschaftung == "Schilf":
                             weiter_optionen.append("Sortierung zu Dachreetbunden")
 
+                    beste_folge, bester_folge_wert = (None, None)
+                    if ist_schilf:
+                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                            weiter_optionen,
+                            lambda opt: max_netto_fuer_schilf_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                                mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+
                     folge_tmp = st.selectbox(
                         "Welche Weiterverarbeitung soll erfolgen?",
                         weiter_optionen,
+                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"langgut_weiter_{bewirtschaftung}_{mahd_tmp}"
                     )
+                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
             # 5) Pelletierte oder Brikettierte Form (mobile Maschine, nur bei Nicht-Sommermahd)
             else:
@@ -604,11 +1292,25 @@ with tab1:
                         "Biogas-Substrat",
                         "Papier herstellen"
                     ]
+
+                beste_verw, bester_verw_wert = (None, None)
+                if ist_schilf:
+                    beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                        pellet_optionen,
+                        lambda opt: max_netto_fuer_schilf_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                            mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt, folge=opt
+                        )
+                    )
+
                 verwertung_tmp = st.selectbox(
                     f"Welche Verwertung für '{ernteform_tmp}' streben Sie an?",
                     pellet_optionen,
+                    format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                     key=f"pellet_brikett_verwertung_{bewirtschaftung}_{mahd_tmp}"
                 )
+                render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
                 folge_tmp = verwertung_tmp
 
         # B) Schwarzerle
@@ -744,18 +1446,44 @@ with tab1:
                 )
 
             if bewirtschaftung == "Schilf" and verwertung_tmp == "Dämmen":
+                schilf_daemm_opts = ["Dämmplatten", "Putzträger"]
+                beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                    schilf_daemm_opts,
+                    lambda opt: max_netto_fuer_schilf_teilbaum(
+                        flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                        etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                        mahd=mahd_tmp, ernteform=ernteform_tmp,
+                        verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
+                    )
+                )
                 folge_tmp = st.selectbox(
                     "Was möchten Sie aus Schilf zum Dämmen herstellen?",
-                    ["Dämmplatten", "Putzträger"],
+                    schilf_daemm_opts,
+                    format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                     key="folge_schilf_daemmen"
                 )
+                render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
             if verwertung_tmp == "Werkstoffe":
+                werkstoff_opts = ["Plattenwerkstoffe", "Formteile"]
+                beste_folge, bester_folge_wert = (None, None)
+                if ist_schilf:
+                    beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                        werkstoff_opts,
+                        lambda opt: max_netto_fuer_schilf_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                            mahd=mahd_tmp, ernteform=ernteform_tmp,
+                            verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
+                        )
+                    )
                 folge_tmp = st.selectbox(
                     "Welche Werkstoffvariante möchten Sie herstellen?",
-                    ["Plattenwerkstoffe", "Formteile"],
+                    werkstoff_opts,
+                    format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                     key="folge_werkstoffe"
                 )
+                render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
             if verwertung_tmp == "Thermische Verwertung" and ernteform_tmp != "Häckselgut":
                 if bewirtschaftung == "Schwarzerle":
@@ -768,11 +1496,23 @@ with tab1:
                     thermisch_schilf_optionen = ["Verbrennung", "Ethanol"]
                     if mahd_tmp != "Sommermahd":
                         thermisch_schilf_optionen.extend(["Briketts", "Pellets"])
+
+                    beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                        thermisch_schilf_optionen,
+                        lambda opt: max_netto_fuer_schilf_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                            mahd=mahd_tmp, ernteform=ernteform_tmp,
+                            verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
+                        )
+                    )
                     folge_tmp = st.selectbox(
                         "Wie möchten Sie das Schilf thermisch nutzen?",
                         thermisch_schilf_optionen,
+                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"folge_thermisch_schilf_{mahd_tmp}"
                     )
+                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
                 else:
                     folge_tmp = st.selectbox(
                         "Wie möchten Sie die Biomasse thermisch nutzen?",
@@ -881,29 +1621,87 @@ with tab1:
                 st.subheader("Lagerung")
 
         if hat_transport_gut:
+            tb_optionen = ["Ja", "Nein"]
+            beste_tb, bester_tb_wert = (None, None)
+            if ist_schilf:
+                beste_tb, bester_tb_wert = beste_schilf_option_ermitteln(
+                    tb_optionen,
+                    lambda opt: max_netto_fuer_schilf_teilbaum(
+                        flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                        etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                        mahd=mahd_tmp, ernteform=ernteform_tmp,
+                        verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
+                        transport_bekannt=opt, transport_km=2.5,
+                        lagerung_geplant=lagerung_geplant, lagerung_art=lagerung_art
+                    )
+                )
+
             transport_bekannt_tmp = st.radio(
                 "Wissen Sie, wie weit das Gut vom Hof zur Verwertungsstelle transportiert werden soll?",
-                ["Ja", "Nein"],
+                tb_optionen,
                 index=0 if transport_bekannt == "Ja" else 1,
+                format_func=lambda opt: format_schilf_option(opt, beste_tb, ist_schilf),
                 key="moor_transport_bekannt"
             )
+            render_schilf_empfehlung_hinweis(beste_tb, bester_tb_wert, ist_schilf)
+
             if transport_bekannt_tmp == "Ja":
                 distanz_optionen = [2.5, 5.0, 10.0, 20.0, 30.0, 50.0]
+                beste_km, bester_km_wert = (None, None)
+                if ist_schilf:
+                    beste_km, bester_km_wert = beste_schilf_option_ermitteln(
+                        distanz_optionen,
+                        lambda opt: max_netto_fuer_schilf_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                            mahd=mahd_tmp, ernteform=ernteform_tmp,
+                            verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
+                            transport_bekannt="Ja", transport_km=opt,
+                            lagerung_geplant=lagerung_geplant, lagerung_art=lagerung_art
+                        )
+                    )
+
+                def format_km_option(x):
+                    label = f"{x:g} km"
+                    if ist_schilf and x == beste_km:
+                        return f"🟢 :green[{label} (Höchster Netto-Ertrag)]"
+                    return label
+
                 transport_km_tmp = st.selectbox(
                     "Transportentfernung vom Hof zur Verwertungsstelle (km):",
                     distanz_optionen,
-                    format_func=lambda x: f"{x:g} km",
+                    format_func=format_km_option,
                     index=distanz_optionen.index(transport_km) if transport_km in distanz_optionen else 2,
                     key="moor_transport_km"
                 )
+                if ist_schilf and beste_km is not None:
+                    render_schilf_empfehlung_hinweis(f"{beste_km:g} km", bester_km_wert, ist_schilf)
 
         if hat_lager_option:
+            lg_optionen = ["Ja", "Nein"]
+            beste_lg, bester_lg_wert = (None, None)
+            if ist_schilf:
+                beste_lg, bester_lg_wert = beste_schilf_option_ermitteln(
+                    lg_optionen,
+                    lambda opt: max_netto_fuer_schilf_teilbaum(
+                        flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                        etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                        mahd=mahd_tmp, ernteform=ernteform_tmp,
+                        verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
+                        transport_bekannt=transport_bekannt_tmp, transport_km=transport_km_tmp,
+                        lagerung_geplant=opt, lagerung_art="Auf einer freien Fläche mit Abdeckung"
+                    )
+                )
+
             lagerung_geplant_tmp = st.radio(
                 "Möchten Sie die Produkte lagern?",
-                ["Ja", "Nein"],
+                lg_optionen,
                 index=0 if lagerung_geplant == "Ja" else 1,
+                format_func=lambda opt: format_schilf_option(opt, beste_lg, ist_schilf),
                 key="moor_lagerung_geplant"
             )
+            render_schilf_empfehlung_hinweis(beste_lg, bester_lg_wert, ist_schilf)
+
             if lagerung_geplant_tmp == "Ja":
                 ist_pellet_oder_brikett = (
                     ernteform_tmp in [
@@ -931,12 +1729,28 @@ with tab1:
                         "Auf einer freien Fläche mit Abdeckung"
                     ]
 
+                beste_la, bester_la_wert = (None, None)
+                if ist_schilf:
+                    beste_la, bester_la_wert = beste_schilf_option_ermitteln(
+                        lager_optionen,
+                        lambda opt: max_netto_fuer_schilf_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, etab_detail=etablierungs_detail,
+                            mahd=mahd_tmp, ernteform=ernteform_tmp,
+                            verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
+                            transport_bekannt=transport_bekannt_tmp, transport_km=transport_km_tmp,
+                            lagerung_geplant="Ja", lagerung_art=opt
+                        )
+                    )
+
                 lagerung_art_tmp = st.selectbox(
                     "Wie sollen die Produkte gelagert werden?",
                     lager_optionen,
                     index=lager_optionen.index(lagerung_art) if lagerung_art in lager_optionen else 0,
+                    format_func=lambda opt: format_schilf_option(opt, beste_la, ist_schilf),
                     key="moor_lagerung_art"
                 )
+                render_schilf_empfehlung_hinweis(beste_la, bester_la_wert, ist_schilf)
 
         st.session_state.moor_mahd_zeitpunkt_val = mahd_tmp
         st.session_state.moor_ernteform_val = ernteform_tmp
@@ -1048,7 +1862,6 @@ with tab1:
             "Pressen": 392.00
         }.get(ballen_winter_option, 0.0)
 
-    # Endprodukt-Zusatzkosten (Mittelwerte €/ha/a, NICHT für mobile Pellets/Briketts)
     ist_mobile_pellet_oder_brikett = ernteform_biomasse in [
         "Pelletierte Form (mobile Pelletierungsmaschine)",
         "Brikettierte Form (mobile Brikettierungsmaschine)"
@@ -1059,35 +1872,26 @@ with tab1:
             folge_auswahl in ["Pellets", "Pellets und Briketts", "Stationäre Pelletieranlage", "Brennstoff-Pellets / Briketts"]
             or ballen_winter_option == "Pellets"
         ):
-            endprodukt_kosten_pro_ha_jahr = 1000.00  # Mittelwert 800 - 1.200 €/ha
-        elif (
-            folge_auswahl in ["Briketts"]
-            or ballen_winter_option == "Briketts"
-        ):
-            endprodukt_kosten_pro_ha_jahr = 800.00    # Mittelwert 640 - 960 €/ha
+            endprodukt_kosten_pro_ha_jahr = 1000.00
+        elif folge_auswahl in ["Briketts"] or ballen_winter_option == "Briketts":
+            endprodukt_kosten_pro_ha_jahr = 800.00
         elif (
             folge_auswahl in ["Formteile", "Plattenwerkstoffe", "Faserplatten und Biokunststoffe"]
             or verwertung in ["Werkstoffe", "Faserplatten & Dämmstoffe"]
         ):
-            endprodukt_kosten_pro_ha_jahr = 920.00    # Mittelwert 640 - 1.200 €/ha
-        elif (
-            folge_auswahl == "Biokunststoffe"
-            or verwertung == "Biokunststoffe"
-        ):
-            endprodukt_kosten_pro_ha_jahr = 1280.00   # Mittelwert 960 - 1.600 €/ha
+            endprodukt_kosten_pro_ha_jahr = 920.00
+        elif folge_auswahl == "Biokunststoffe" or verwertung == "Biokunststoffe":
+            endprodukt_kosten_pro_ha_jahr = 1280.00
         elif (
             folge_auswahl in ["Einblasdämmung", "Dämmmatten", "Dämmstoffe (Einblasdämmung / Dämmmatten)"]
             or verwertung == "Dämm- und Baustoffe"
         ):
-            endprodukt_kosten_pro_ha_jahr = 11200.00  # Mittelwert Stufe B (10.400 - 12.000 €/ha)
+            endprodukt_kosten_pro_ha_jahr = 11200.00
 
     transport_kosten_pro_ha_jahr = 0.0
     if not entfaellt_ernte_und_transport:
         ist_pellet_brikett_produkt = (
-            ernteform_biomasse in [
-                "Pelletierte Form (mobile Pelletierungsmaschine)",
-                "Brikettierte Form (mobile Brikettierungsmaschine)"
-            ]
+            ist_mobile_pellet_oder_brikett
             or folge_auswahl in [
                 "Pellets",
                 "Briketts",
@@ -1227,10 +2031,7 @@ with tab1:
     lager_kosten_pro_ha_jahr = 0.0
     if lagerung_geplant == "Ja" and ernteform_biomasse not in ["Bunde", "Loses Langgut"]:
         ist_pellet_brikett_lager = (
-            ernteform_biomasse in [
-                "Pelletierte Form (mobile Pelletierungsmaschine)",
-                "Brikettierte Form (mobile Brikettierungsmaschine)"
-            ]
+            ist_mobile_pellet_oder_brikett
             or folge_auswahl in [
                 "Pellets",
                 "Briketts",
@@ -1321,7 +2122,7 @@ with tab1:
         elif verwertung == "Dämmplatten" or folge_auswahl in ["Dämmplatten", "Dämmplatten & Leichtbaumatten"]:
             nutzung_erloes_pro_ha_jahr = 4410.00
         elif folge_auswahl in ["Einblasdämmung", "Dämmmatten"]:
-            nutzung_erloes_pro_ha_jahr = 13600.00  # ~1.700 €/t * 8 t TM/ha bei Fertigprodukt-Verkauf
+            nutzung_erloes_pro_ha_jahr = 13600.00
         elif folge_auswahl == "Putzträger":
             nutzung_erloes_pro_ha_jahr = 1750.00
         elif folge_auswahl == "Zuschlagstoff für Lehm- und Kalkputze":
@@ -1333,10 +2134,7 @@ with tab1:
         elif folge_auswahl == "Formteile":
             nutzung_erloes_pro_ha_jahr = 715.00 if ist_sommer else 1440.00
         elif (
-            ernteform_biomasse in [
-                "Pelletierte Form (mobile Pelletierungsmaschine)",
-                "Brikettierte Form (mobile Brikettierungsmaschine)"
-            ]
+            ist_mobile_pellet_oder_brikett
             or folge_auswahl in [
                 "Pellets",
                 "Briketts",
