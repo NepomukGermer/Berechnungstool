@@ -34,6 +34,7 @@ with tab1:
     st.header("Moor-Wiedervernässung & Paludikultur")
 
     flaechen_groesse = st.session_state.get("moor_flaeche_val", 10.0)
+    bundesland = st.session_state.get("moor_bundesland_val", "Schleswig-Holstein")
     moor_typ = st.session_state.get("moor_typ_val", "Hochmoor")
     besitz_status = st.session_state.get("moor_besitz_val", "Bereits im Besitz")
     vorher_nutzung = st.session_state.get("moor_vorher_val", "Grünland")
@@ -55,9 +56,15 @@ with tab1:
     tier_vermarktung = st.session_state.get("moor_tier_vermarktung_val", None)
     erntetechnik = st.session_state.get("moor_erntetechnik_val", None)
 
+    transport_bekannt = st.session_state.get("moor_transport_bekannt_val", "Nein")
+    transport_km = st.session_state.get("moor_transport_km_val", 10.0)
+    lagerung_geplant = st.session_state.get("moor_lagerung_geplant_val", "Nein")
+    lagerung_art = st.session_state.get("moor_lagerung_art_val", None)
+
     # Kompakte Status-Leiste oben (sichtbar ab Schritt 2)
     if st.session_state.moor_step >= 1:
         info_teile = [
+            f"**Bundesland:** {bundesland}",
             f"**Fläche:** {flaechen_groesse:.1f} ha",
             f"**Moortyp:** {moor_typ}",
             f"**Status:** {besitz_status}",
@@ -76,6 +83,19 @@ with tab1:
     # --- SCHRITT 0: STARTMASKE ---
     if st.session_state.moor_step == 0:
         st.subheader("Schritt 1 von 3: Startmaske – Fläche & Ausgangslage")
+
+        bundesland_optionen = [
+            "Schleswig-Holstein",
+            "Bayern",
+            "Niedersachsen",
+            "Mecklenburg-Vorpommern"
+        ]
+        bundesland_input = st.selectbox(
+            "In welchem Bundesland liegt das Moor?",
+            bundesland_optionen,
+            index=bundesland_optionen.index(bundesland) if bundesland in bundesland_optionen else 0,
+            key="input_bundesland"
+        )
 
         flaeche_input = st.number_input(
             "Wie viel Hektar (ha) möchten Sie wiedervernässen?",
@@ -103,6 +123,13 @@ with tab1:
         vorbesitzer_ertrag_bekannt = False
         ertrag_step1_tmp = float(bisherige_ertraege_pro_ha)
 
+        kaufpreis_bundesland_map = {
+            "Schleswig-Holstein": 26875.0,
+            "Bayern": 60864.0,
+            "Niedersachsen": 33497.0,
+            "Mecklenburg-Vorpommern": 21822.0
+        }
+
         if besitz_input == "Muss gekauft werden":
             preis_bekannt = st.radio(
                 "Kennen Sie den Kaufpreis für das Grundstück?",
@@ -113,14 +140,18 @@ with tab1:
                 kaufpreis_pro_ha = st.number_input(
                     "Kaufpreis (€/ha):",
                     min_value=0.0,
-                    value=15000.0,
+                    value=float(kaufpreis_bundesland_map[bundesland_input]),
                     step=500.0,
                     key="input_kaufpreis_ha"
                 )
                 kaufkosten_tmp = kaufpreis_pro_ha * flaeche_input
             else:
-                kaufkosten_tmp = 14000.0 * flaeche_input
-                st.info("Kein Kaufpreis bekannt – es wird mit einem Richtwert von 14.000 €/ha gerechnet.")
+                richtwert_ha = kaufpreis_bundesland_map[bundesland_input]
+                kaufkosten_tmp = richtwert_ha * flaeche_input
+                st.info(
+                    f"Kein Kaufpreis bekannt – für **{bundesland_input}** wird mit einem "
+                    f"durchschnittlichen Kaufpreis von **{richtwert_ha:,.0f} €/ha** gerechnet."
+                )
 
             vorbesitzer_ertrag_bekannt = st.checkbox(
                 "Kennen Sie die bisherigen Erträge pro ha und Jahr vom Vorbesitzer?",
@@ -146,6 +177,7 @@ with tab1:
 
         st.markdown("---")
         if st.button("Weiter →", type="primary", key="btn_weiter_0"):
+            st.session_state.moor_bundesland_val = bundesland_input
             st.session_state.moor_flaeche_val = flaeche_input
             st.session_state.moor_typ_val = moor_typ_input
             st.session_state.moor_besitz_val = besitz_input
@@ -222,7 +254,7 @@ with tab1:
             go_next()
             st.rerun()
 
-    # --- SCHRITT 2: ERNTEFORM, VERWERTUNG, TECHNIK & AUSWERTUNG ---
+    # --- SCHRITT 2: ERNTEFORM, VERWERTUNG, TECHNIK, TRANSPORT, LAGERUNG & AUSWERTUNG ---
     elif st.session_state.moor_step == 2:
         nav_col1, nav_col2, _ = st.columns([1, 1, 4])
         with nav_col1:
@@ -230,7 +262,7 @@ with tab1:
         with nav_col2:
             st.button("🏠 Zur Startseite", on_click=go_to_start, key="btn_start_2")
 
-        st.subheader("Schritt 3 von 3: Ernteform, Verwertung, Technik & Auswertung")
+        st.subheader("Schritt 3 von 3: Ernteform, Verwertung, Logistik & Auswertung")
 
         mahd_tmp = mahd_zeitpunkt
         ernteform_tmp = None
@@ -242,6 +274,10 @@ with tab1:
         tier_haltung_tmp = None
         tier_vermarktung_tmp = None
         erntetechnik_tmp = None
+        transport_bekannt_tmp = "Nein"
+        transport_km_tmp = 10.0
+        lagerung_geplant_tmp = "Nein"
+        lagerung_art_tmp = None
 
         # A) Rohrglanzgras, Schilf, Rohrkolben, Seggen
         if bewirtschaftung in ["Rohrglanzgras", "Schilf", "Rohrkolben", "Seggen"]:
@@ -370,7 +406,7 @@ with tab1:
                     key=f"ballen_verwertung_{bewirtschaftung}"
                 )
 
-            # 3) Bunde (ohne Papierherstellung)
+            # 3) Bunde (inkl. Option "Dachreed" bei Schilf)
             elif ernteform_tmp == "Bunde":
                 if bewirtschaftung == "Rohrkolben":
                     basis_verwertung = [
@@ -385,6 +421,7 @@ with tab1:
                     ]
                 elif bewirtschaftung == "Schilf":
                     basis_verwertung = [
+                        "Dachreed",
                         "Dämmen",
                         "Werkstoffe",
                         "Thermische Verwertung",
@@ -676,6 +713,67 @@ with tab1:
                 key="moor_erntetechnik"
             )
 
+        # Transport-Abfrage bei Häckselgut, Dachschilf/Dachreed, Ballen und Pellets
+        hat_transport_gut = (
+            ernteform_tmp in [
+                "Häckselgut",
+                "Rundballen",
+                "Quaderballen",
+                "Pelletierte Form (mobile Pelletierungsmaschine)"
+            ]
+            or verwertung_tmp == "Dachreed"
+            or folge_tmp in [
+                "Sortierung zu Dachreetbunden",
+                "Pellets",
+                "Pellets und Briketts",
+                "Stationäre Pelletieranlage",
+                "Brennstoff-Pellets / Briketts"
+            ]
+            or unter_folge_tmp in ["Häckselgut", "Ballen"]
+        )
+
+        if hat_transport_gut:
+            st.markdown("---")
+            st.subheader("Transport & Lagerung")
+            transport_bekannt_tmp = st.radio(
+                "Wissen Sie, wie weit das Gut vom Hof zur Verwertungsstelle transportiert werden soll?",
+                ["Ja", "Nein"],
+                index=0 if transport_bekannt == "Ja" else 1,
+                key="moor_transport_bekannt"
+            )
+            if transport_bekannt_tmp == "Ja":
+                distanz_optionen = [2.5, 5.0, 10.0, 20.0, 30.0, 50.0]
+                transport_km_tmp = st.selectbox(
+                    "Transportentfernung vom Hof zur Verwertungsstelle (km):",
+                    distanz_optionen,
+                    format_func=lambda x: f"{x:g} km",
+                    index=distanz_optionen.index(transport_km) if transport_km in distanz_optionen else 2,
+                    key="moor_transport_km"
+                )
+        else:
+            st.markdown("---")
+            st.subheader("Lagerung")
+
+        # Lagerung für Produkte (immer abfragbar)
+        lagerung_geplant_tmp = st.radio(
+            "Möchten Sie die Produkte lagern?",
+            ["Ja", "Nein"],
+            index=0 if lagerung_geplant == "Ja" else 1,
+            key="moor_lagerung_geplant"
+        )
+        if lagerung_geplant_tmp == "Ja":
+            lager_optionen = [
+                "In einer Halle",
+                "In einem Altgebäude",
+                "Auf einer freien Fläche mit Abdeckung"
+            ]
+            lagerung_art_tmp = st.selectbox(
+                "Wie sollen die Produkte gelagert werden?",
+                lager_optionen,
+                index=lager_optionen.index(lagerung_art) if lagerung_art in lager_optionen else 0,
+                key="moor_lagerung_art"
+            )
+
         st.session_state.moor_mahd_zeitpunkt_val = mahd_tmp
         st.session_state.moor_ernteform_val = ernteform_tmp
         st.session_state.moor_schwarzerle_ernte_val = schwarzerle_tmp
@@ -686,6 +784,10 @@ with tab1:
         st.session_state.moor_tier_haltung_val = tier_haltung_tmp
         st.session_state.moor_tier_vermarktung_val = tier_vermarktung_tmp
         st.session_state.moor_erntetechnik_val = erntetechnik_tmp
+        st.session_state.moor_transport_bekannt_val = transport_bekannt_tmp
+        st.session_state.moor_transport_km_val = transport_km_tmp
+        st.session_state.moor_lagerung_geplant_val = lagerung_geplant_tmp
+        st.session_state.moor_lagerung_art_val = lagerung_art_tmp
 
         mahd_zeitpunkt = mahd_tmp
         ernteform_biomasse = ernteform_tmp
@@ -697,6 +799,10 @@ with tab1:
         tier_haltungssystem = tier_haltung_tmp
         tier_vermarktung = tier_vermarktung_tmp
         erntetechnik = erntetechnik_tmp
+        transport_bekannt = transport_bekannt_tmp
+        transport_km = transport_km_tmp
+        lagerung_geplant = lagerung_geplant_tmp
+        lagerung_art = lagerung_art_tmp
 
     # ==========================================
     # BERECHNUNGSLOGIK MOOR (IMMER AKTUELL)
@@ -709,31 +815,74 @@ with tab1:
     vorher_aufschlag = 1.15 if vorher_nutzung == "Ackerland" else 1.0
     co2_minderung_moor = flaechen_groesse * moor_basis_co2 * vorher_aufschlag
 
-    etablierung_kosten_pro_ha_jahr = 0.0
-    if etablierungs_art == "Erstetablierung":
-        etablierung_kosten_pro_ha_jahr = 450.0 if etablierungs_detail == "Anpflanzung mit Jungpflanzen" else 250.0
-    elif etablierungs_art == "Natürliche Sukzession":
-        etablierung_kosten_pro_ha_jahr = 80.0
+    # Etablierungskosten (€/ha/Jahr)
+    if bewirtschaftung == "Schilf":
+        if etablierungs_art == "Erstetablierung":
+            etablierung_kosten_pro_ha_jahr = (
+                378.50 if etablierungs_detail == "Anpflanzung mit Jungpflanzen" else 247.22
+            )
+        else:
+            etablierung_kosten_pro_ha_jahr = 224.00
+    else:
+        if etablierungs_art == "Erstetablierung":
+            etablierung_kosten_pro_ha_jahr = (
+                450.0 if etablierungs_detail == "Anpflanzung mit Jungpflanzen" else 250.0
+            )
+        elif etablierungs_art == "Natürliche Sukzession":
+            etablierung_kosten_pro_ha_jahr = 80.0
+        else:
+            etablierung_kosten_pro_ha_jahr = 0.0
 
-    technik_kosten_pro_ha_jahr = {
-        None: 120.0,
-        "Eigene Maschinen vorhanden, die auf der Fläche fahren können": 150.0,
-        "Zugang zu einem Maschinenring": 220.0,
-        "Vorhandene Maschinen können angepasst werden": 260.0,
-        "Spezialtechnik kaufen": 420.0,
-        "Spezialfirmen beauftragen": 480.0
-    }[erntetechnik]
+    # Laufende Pflege-, Verwallungs- & Abgabenkosten (€/ha/Jahr)
+    laufende_kosten_pro_ha_jahr = 693.75 if bewirtschaftung == "Schilf" else 0.0
+
+    # Erntekosten (€/ha/Jahr)
+    if bewirtschaftung == "Schilf":
+        if ernteform_biomasse in ["Rundballen", "Quaderballen", "Häckselgut"]:
+            erntekosten_pro_ha_jahr = 410.00
+        elif ernteform_biomasse == "Bunde":
+            erntekosten_pro_ha_jahr = 640.00
+        else:
+            erntekosten_pro_ha_jahr = 350.00
+    else:
+        erntekosten_pro_ha_jahr = {
+            None: 120.0,
+            "Eigene Maschinen vorhanden, die auf der Fläche fahren können": 150.0,
+            "Zugang zu einem Maschinenring": 220.0,
+            "Vorhandene Maschinen können angepasst werden": 260.0,
+            "Spezialtechnik kaufen": 420.0,
+            "Spezialfirmen beauftragen": 480.0
+        }[erntetechnik]
+
+    # Transport- & Lagerkosten (€/ha/Jahr)
+    transport_kosten_pro_ha_jahr = 0.0
+    if transport_bekannt == "Ja":
+        transport_kosten_pro_ha_jahr = transport_km * 3.5  # Richtwert pro km und ha/Jahr
+
+    lager_kosten_pro_ha_jahr = 0.0
+    if lagerung_geplant == "Ja":
+        lager_kosten_pro_ha_jahr = {
+            "In einer Halle": 120.0,
+            "In einem Altgebäude": 65.0,
+            "Auf einer freien Fläche mit Abdeckung": 35.0
+        }.get(lagerung_art, 0.0)
 
     kauf_annuitaet_jahr = kaufkosten_gesamt / 10.0
 
     kosten_bauer_jahr = (
-        flaechen_groesse * (etablierung_kosten_pro_ha_jahr + technik_kosten_pro_ha_jahr)
+        flaechen_groesse * (
+            etablierung_kosten_pro_ha_jahr
+            + laufende_kosten_pro_ha_jahr
+            + erntekosten_pro_ha_jahr
+            + transport_kosten_pro_ha_jahr
+            + lager_kosten_pro_ha_jahr
+        )
         + kauf_annuitaet_jahr
     )
 
     kosten_volk_jahr = (
         flaechen_groesse * 850.0
-        + flaechen_groesse * etablierung_kosten_pro_ha_jahr
+        + flaechen_groesse * (etablierung_kosten_pro_ha_jahr + laufende_kosten_pro_ha_jahr)
         + kauf_annuitaet_jahr
     )
 
