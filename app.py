@@ -279,6 +279,7 @@ with tab1:
         transport_km_tmp = 10.0
         lagerung_geplant_tmp = "Nein"
         lagerung_art_tmp = None
+        ballen_endprodukt_gewuenscht = False
 
         # A) Rohrglanzgras, Schilf, Rohrkolben, Seggen
         if bewirtschaftung in ["Rohrglanzgras", "Schilf", "Rohrkolben", "Seggen"]:
@@ -395,59 +396,64 @@ with tab1:
                         ["Keine zusätzliche Verarbeitung", "Pellets", "Briketts", "Pressen"],
                         key=f"ballen_winter_opt_{bewirtschaftung}"
                     )
+                    if ballen_winter_tmp != "Keine zusätzliche Verarbeitung":
+                        ballen_endprodukt_gewuenscht = True
+                        verwertung_tmp = ballen_winter_tmp
+                        folge_tmp = ballen_winter_tmp
 
-                if bewirtschaftung == "Rohrkolben":
-                    basis_verwertung = [
-                        "Dämmen und Bauen",
-                        "Werkstoffe",
-                        "Thermische Verwertung",
-                        "Samen",
-                        "Fasern",
-                        "Gartenbausubstrate",
-                        "Einstreu",
-                        "Plattformchemikalien"
-                    ]
-                elif bewirtschaftung == "Schilf":
-                    if mahd_tmp == "Sommermahd":
+                if not ballen_endprodukt_gewuenscht:
+                    if bewirtschaftung == "Rohrkolben":
                         basis_verwertung = [
-                            "Dämmplatten",
-                            "Kultursubstrate",
+                            "Dämmen und Bauen",
+                            "Werkstoffe",
+                            "Thermische Verwertung",
+                            "Samen",
+                            "Fasern",
+                            "Gartenbausubstrate",
+                            "Einstreu",
                             "Plattformchemikalien"
+                        ]
+                    elif bewirtschaftung == "Schilf":
+                        if mahd_tmp == "Sommermahd":
+                            basis_verwertung = [
+                                "Dämmplatten",
+                                "Kultursubstrate",
+                                "Plattformchemikalien"
+                            ]
+                        else:
+                            basis_verwertung = [
+                                "Dämmen",
+                                "Werkstoffe",
+                                "Thermische Verwertung",
+                                "Kultursubstrate",
+                                "Einstreu",
+                                "Bio-Aktivkohle",
+                                "Plattformchemikalien"
+                            ]
+                    elif bewirtschaftung == "Seggen":
+                        basis_verwertung = [
+                            "Thermische Verwertung",
+                            "Pferdeheu",
+                            "Einstreu",
+                            "Bau- & Dämmstoffe",
+                            "Gartenbausubstrate",
+                            "Kohle"
                         ]
                     else:
                         basis_verwertung = [
-                            "Dämmen",
-                            "Werkstoffe",
-                            "Thermische Verwertung",
-                            "Kultursubstrate",
+                            "Pferdeheu",
+                            "Raufutter",
+                            "Proteinkonzentrat",
                             "Einstreu",
-                            "Bio-Aktivkohle",
-                            "Plattformchemikalien"
+                            "Thermische Verwertung",
+                            "Bau- & Dämmstoffe"
                         ]
-                elif bewirtschaftung == "Seggen":
-                    basis_verwertung = [
-                        "Thermische Verwertung",
-                        "Pferdeheu",
-                        "Einstreu",
-                        "Bau- & Dämmstoffe",
-                        "Gartenbausubstrate",
-                        "Kohle"
-                    ]
-                else:
-                    basis_verwertung = [
-                        "Pferdeheu",
-                        "Raufutter",
-                        "Proteinkonzentrat",
-                        "Einstreu",
-                        "Thermische Verwertung",
-                        "Bau- & Dämmstoffe"
-                    ]
 
-                verwertung_tmp = st.selectbox(
-                    f"Welche Verwertung für {ernteform_tmp} streben Sie an?",
-                    basis_verwertung,
-                    key=f"ballen_verwertung_{bewirtschaftung}_{mahd_tmp}"
-                )
+                    verwertung_tmp = st.selectbox(
+                        f"Welche Verwertung für {ernteform_tmp} streben Sie an?",
+                        basis_verwertung,
+                        key=f"ballen_verwertung_{bewirtschaftung}_{mahd_tmp}"
+                    )
 
             # 3) Bunde
             elif ernteform_tmp == "Bunde":
@@ -728,71 +734,72 @@ with tab1:
             )
             folge_tmp = f"{tier_art_tmp} – {tier_haltung_tmp} – {tier_vermarktung_tmp}"
 
-        # Allgemeine Folgeabfragen
-        if verwertung_tmp in ["Dämmen und Bauen", "Bau- & Dämmstoffe"]:
-            folge_tmp = st.selectbox(
-                "Welche Dämm- bzw. Bauprodukte möchten Sie herstellen?",
-                ["Einblasdämmung", "Dämmmatten", "Dämmplatten", "Plattenwerkstoffe"],
-                key="folge_daemmung"
-            )
-
-        if bewirtschaftung == "Schilf" and verwertung_tmp == "Dämmen":
-            folge_tmp = st.selectbox(
-                "Was möchten Sie aus Schilf zum Dämmen herstellen?",
-                ["Dämmplatten", "Putzträger"],
-                key="folge_schilf_daemmen"
-            )
-
-        if verwertung_tmp == "Werkstoffe":
-            folge_tmp = st.selectbox(
-                "Welche Werkstoffvariante möchten Sie herstellen?",
-                ["Plattenwerkstoffe", "Formteile"],
-                key="folge_werkstoffe"
-            )
-
-        if verwertung_tmp == "Thermische Verwertung" and ernteform_tmp != "Häckselgut":
-            if bewirtschaftung == "Schwarzerle":
+        # Allgemeine Folgeabfragen (nur wenn bei Ballen nicht schon eine Weiterverarbeitung gewählt wurde)
+        if not ballen_endprodukt_gewuenscht:
+            if verwertung_tmp in ["Dämmen und Bauen", "Bau- & Dämmstoffe"]:
                 folge_tmp = st.selectbox(
-                    "Wie möchten Sie die Schwarzerle thermisch nutzen?",
-                    ["Direkte Verbrennung"],
-                    key="folge_thermisch_schwarzerle"
-                )
-            elif bewirtschaftung == "Schilf":
-                thermisch_schilf_optionen = ["Verbrennung", "Ethanol"]
-                if mahd_tmp != "Sommermahd":
-                    thermisch_schilf_optionen.extend(["Briketts", "Pellets"])
-                folge_tmp = st.selectbox(
-                    "Wie möchten Sie das Schilf thermisch nutzen?",
-                    thermisch_schilf_optionen,
-                    key=f"folge_thermisch_schilf_{mahd_tmp}"
-                )
-            else:
-                folge_tmp = st.selectbox(
-                    "Wie möchten Sie die Biomasse thermisch nutzen?",
-                    ["Briketts", "Pellets", "Trockenmasse / Direktverbrennung", "Biogas"],
-                    key="folge_thermisch"
+                    "Welche Dämm- bzw. Bauprodukte möchten Sie herstellen?",
+                    ["Einblasdämmung", "Dämmmatten", "Dämmplatten", "Plattenwerkstoffe"],
+                    key="folge_daemmung"
                 )
 
-        if verwertung_tmp in ["Samen", "Saatgut ernten", "Fasern"]:
-            folge_tmp = st.selectbox(
-                "Wie möchten Sie Samen bzw. Fasern nutzen?",
-                [
-                    "Samen zur Weitervermehrung nutzen",
-                    "Fasern als Füllfaser verwenden",
-                    "Fasern als Dämmfaser verwenden"
-                ],
-                key="folge_samen_fasern"
-            )
+            if bewirtschaftung == "Schilf" and verwertung_tmp == "Dämmen":
+                folge_tmp = st.selectbox(
+                    "Was möchten Sie aus Schilf zum Dämmen herstellen?",
+                    ["Dämmplatten", "Putzträger"],
+                    key="folge_schilf_daemmen"
+                )
 
-        if bewirtschaftung == "Torfmoos" and verwertung_tmp == "Kultursubstrate herstellen":
-            folge_tmp = st.selectbox(
-                "Welches Substrat-Ziel verfolgen Sie bei Torfmoos?",
-                [
-                    "Fossiler Weißtorf (Vergleich / Ersatz)",
-                    "Spezialsubstrate für die Orchideenzucht"
-                ],
-                key="folge_torfmoos_substrat"
-            )
+            if verwertung_tmp == "Werkstoffe":
+                folge_tmp = st.selectbox(
+                    "Welche Werkstoffvariante möchten Sie herstellen?",
+                    ["Plattenwerkstoffe", "Formteile"],
+                    key="folge_werkstoffe"
+                )
+
+            if verwertung_tmp == "Thermische Verwertung" and ernteform_tmp != "Häckselgut":
+                if bewirtschaftung == "Schwarzerle":
+                    folge_tmp = st.selectbox(
+                        "Wie möchten Sie die Schwarzerle thermisch nutzen?",
+                        ["Direkte Verbrennung"],
+                        key="folge_thermisch_schwarzerle"
+                    )
+                elif bewirtschaftung == "Schilf":
+                    thermisch_schilf_optionen = ["Verbrennung", "Ethanol"]
+                    if mahd_tmp != "Sommermahd":
+                        thermisch_schilf_optionen.extend(["Briketts", "Pellets"])
+                    folge_tmp = st.selectbox(
+                        "Wie möchten Sie das Schilf thermisch nutzen?",
+                        thermisch_schilf_optionen,
+                        key=f"folge_thermisch_schilf_{mahd_tmp}"
+                    )
+                else:
+                    folge_tmp = st.selectbox(
+                        "Wie möchten Sie die Biomasse thermisch nutzen?",
+                        ["Briketts", "Pellets", "Trockenmasse / Direktverbrennung", "Biogas"],
+                        key="folge_thermisch"
+                    )
+
+            if verwertung_tmp in ["Samen", "Saatgut ernten", "Fasern"]:
+                folge_tmp = st.selectbox(
+                    "Wie möchten Sie Samen bzw. Fasern nutzen?",
+                    [
+                        "Samen zur Weitervermehrung nutzen",
+                        "Fasern als Füllfaser verwenden",
+                        "Fasern als Dämmfaser verwenden"
+                    ],
+                    key="folge_samen_fasern"
+                )
+
+            if bewirtschaftung == "Torfmoos" and verwertung_tmp == "Kultursubstrate herstellen":
+                folge_tmp = st.selectbox(
+                    "Welches Substrat-Ziel verfolgen Sie bei Torfmoos?",
+                    [
+                        "Fossiler Weißtorf (Vergleich / Ersatz)",
+                        "Spezialsubstrate für die Orchideenzucht"
+                    ],
+                    key="folge_torfmoos_substrat"
+                )
 
         ist_schilf_ethanol = (
             bewirtschaftung == "Schilf"
@@ -806,6 +813,11 @@ with tab1:
         )
         keine_ernte_und_kein_transport = ist_schilf_ethanol or ist_schilf_biogasanlage
 
+        schilf_ohne_maschinenfrage = (
+            bewirtschaftung == "Schilf"
+            and ernteform_tmp in ["Häckselgut", "Rundballen", "Quaderballen", "Loses Langgut"]
+        )
+
         ist_tierhaltung = (
             bewirtschaftung == "Tierhaltung"
             or (bewirtschaftung == "Nasswiese" and verwertung_tmp == "Tierhaltung")
@@ -814,6 +826,7 @@ with tab1:
             bewirtschaftung not in ["Photo-Voltaik", "Tierhaltung", "Schwarzerle"]
             and not ist_tierhaltung
             and not keine_ernte_und_kein_transport
+            and not schilf_ohne_maschinenfrage
         ):
             erntetechnik_tmp = st.selectbox(
                 "Wie sieht es mit Erntemaschinen aus?",
@@ -1035,6 +1048,39 @@ with tab1:
             "Pressen": 392.00
         }.get(ballen_winter_option, 0.0)
 
+    # Endprodukt-Zusatzkosten (Mittelwerte €/ha/a, NICHT für mobile Pellets/Briketts)
+    ist_mobile_pellet_oder_brikett = ernteform_biomasse in [
+        "Pelletierte Form (mobile Pelletierungsmaschine)",
+        "Brikettierte Form (mobile Brikettierungsmaschine)"
+    ]
+    endprodukt_kosten_pro_ha_jahr = 0.0
+    if not ist_mobile_pellet_oder_brikett:
+        if (
+            folge_auswahl in ["Pellets", "Pellets und Briketts", "Stationäre Pelletieranlage", "Brennstoff-Pellets / Briketts"]
+            or ballen_winter_option == "Pellets"
+        ):
+            endprodukt_kosten_pro_ha_jahr = 1000.00  # Mittelwert 800 - 1.200 €/ha
+        elif (
+            folge_auswahl in ["Briketts"]
+            or ballen_winter_option == "Briketts"
+        ):
+            endprodukt_kosten_pro_ha_jahr = 800.00    # Mittelwert 640 - 960 €/ha
+        elif (
+            folge_auswahl in ["Formteile", "Plattenwerkstoffe", "Faserplatten und Biokunststoffe"]
+            or verwertung in ["Werkstoffe", "Faserplatten & Dämmstoffe"]
+        ):
+            endprodukt_kosten_pro_ha_jahr = 920.00    # Mittelwert 640 - 1.200 €/ha
+        elif (
+            folge_auswahl == "Biokunststoffe"
+            or verwertung == "Biokunststoffe"
+        ):
+            endprodukt_kosten_pro_ha_jahr = 1280.00   # Mittelwert 960 - 1.600 €/ha
+        elif (
+            folge_auswahl in ["Einblasdämmung", "Dämmmatten", "Dämmstoffe (Einblasdämmung / Dämmmatten)"]
+            or verwertung == "Dämm- und Baustoffe"
+        ):
+            endprodukt_kosten_pro_ha_jahr = 11200.00  # Mittelwert Stufe B (10.400 - 12.000 €/ha)
+
     transport_kosten_pro_ha_jahr = 0.0
     if not entfaellt_ernte_und_transport:
         ist_pellet_brikett_produkt = (
@@ -1237,6 +1283,7 @@ with tab1:
             + laufende_kosten_pro_ha_jahr
             + sonderkosten_schilf_pro_ha_jahr
             + erntekosten_pro_ha_jahr
+            + endprodukt_kosten_pro_ha_jahr
             + transport_kosten_pro_ha_jahr
             + lager_kosten_pro_ha_jahr
         )
@@ -1249,6 +1296,7 @@ with tab1:
             etablierung_kosten_pro_ha_jahr
             + laufende_kosten_pro_ha_jahr
             + sonderkosten_schilf_pro_ha_jahr
+            + endprodukt_kosten_pro_ha_jahr
         )
         + kauf_annuitaet_jahr
     )
@@ -1272,10 +1320,10 @@ with tab1:
             nutzung_erloes_pro_ha_jahr = 4704.00
         elif verwertung == "Dämmplatten" or folge_auswahl in ["Dämmplatten", "Dämmplatten & Leichtbaumatten"]:
             nutzung_erloes_pro_ha_jahr = 4410.00
+        elif folge_auswahl in ["Einblasdämmung", "Dämmmatten"]:
+            nutzung_erloes_pro_ha_jahr = 13600.00  # ~1.700 €/t * 8 t TM/ha bei Fertigprodukt-Verkauf
         elif folge_auswahl == "Putzträger":
             nutzung_erloes_pro_ha_jahr = 1750.00
-        elif folge_auswahl == "Einblasdämmung":
-            nutzung_erloes_pro_ha_jahr = 2400.00
         elif folge_auswahl == "Zuschlagstoff für Lehm- und Kalkputze":
             nutzung_erloes_pro_ha_jahr = 1400.00
         elif folge_auswahl == "Papier- und Kartonherstellung" or verwertung == "Papier herstellen":
