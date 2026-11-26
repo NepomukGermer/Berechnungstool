@@ -62,7 +62,6 @@ with tab1:
     lagerung_geplant = st.session_state.get("moor_lagerung_geplant_val", "Nein")
     lagerung_art = st.session_state.get("moor_lagerung_art_val", None)
 
-    # Kompakte Status-Leiste oben (sichtbar ab Schritt 2)
     if st.session_state.moor_step >= 1:
         info_teile = [
             f"**Bundesland:** {bundesland}",
@@ -426,7 +425,7 @@ with tab1:
                         "Gartenbausubstrate",
                         "Kohle"
                     ]
-                else:  # Rohrglanzgras
+                else:
                     basis_verwertung = [
                         "Pferdeheu",
                         "Raufutter",
@@ -482,7 +481,7 @@ with tab1:
                         "Gartenbausubstrate",
                         "Kohle"
                     ]
-                else:  # Rohrglanzgras
+                else:
                     basis_verwertung = [
                         "Pferdeheu",
                         "Raufutter",
@@ -536,7 +535,7 @@ with tab1:
                         direkt_optionen,
                         key=f"langgut_direkt_{bewirtschaftung}"
                     )
-                else:  # Weiterverarbeitung
+                else:
                     if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
                         weiter_optionen = [
                             "Stationäre Pelletieranlage",
@@ -606,7 +605,7 @@ with tab1:
                 )
                 folge_tmp = verwertung_tmp
 
-        # B) Schwarzerle: Stammholz vs. Hackschnitzel
+        # B) Schwarzerle
         elif bewirtschaftung == "Schwarzerle":
             schwarzerle_tmp = st.radio(
                 "Ernten Sie bei der Schwarzerle Stammholz oder Hackschnitzel?",
@@ -792,7 +791,6 @@ with tab1:
                 key="folge_torfmoos_substrat"
             )
 
-        # Sonderfälle bei Schilf: Ethanol (thermische Verwertung) und Biogasanlage (energetische Verwertung)
         ist_schilf_ethanol = (
             bewirtschaftung == "Schilf"
             and verwertung_tmp == "Thermische Verwertung"
@@ -805,7 +803,6 @@ with tab1:
         )
         keine_ernte_und_kein_transport = ist_schilf_ethanol or ist_schilf_biogasanlage
 
-        # Erntemaschinen: entfällt bei PV, Tierhaltung, Schwarzerle sowie Schilf-Ethanol / Schilf-Biogasanlage
         ist_tierhaltung = (
             bewirtschaftung == "Tierhaltung"
             or (bewirtschaftung == "Nasswiese" and verwertung_tmp == "Tierhaltung")
@@ -827,7 +824,6 @@ with tab1:
                 key="moor_erntetechnik"
             )
 
-        # Transport-Abfrage bei Häckselgut, Dachschilf/Dachreed, Bunden, losem Langgut, Ballen und Pellets/Briketts
         hat_transport_gut = (
             not keine_ernte_und_kein_transport
             and (
@@ -853,7 +849,6 @@ with tab1:
             )
         )
 
-        # Lagerung entfällt für Bunde und Loses Langgut
         hat_lager_option = (
             bewirtschaftung not in ["Photo-Voltaik", "Tierhaltung"]
             and not ist_tierhaltung
@@ -894,7 +889,6 @@ with tab1:
                 key="moor_lagerung_geplant"
             )
             if lagerung_geplant_tmp == "Ja":
-                # Verfügbare Lageroptionen je nach Ernteform / Produkt
                 ist_pellet_oder_brikett = (
                     ernteform_tmp in [
                         "Pelletierte Form (mobile Pelletierungsmaschine)",
@@ -971,9 +965,7 @@ with tab1:
     vorher_aufschlag = 1.15 if vorher_nutzung == "Ackerland" else 1.0
     co2_minderung_moor = flaechen_groesse * moor_basis_co2 * vorher_aufschlag
 
-    # Etablierungskosten & laufende Pflegekosten (€/ha/Jahr)
     if bewirtschaftung == "Schilf" and ernteform_biomasse == "Loses Langgut":
-        # Bei losem Langgut gelten die spezifischen Produktionskosten zusätzlich zu den Grundstückskosten
         if etablierungs_art == "Erstetablierung":
             etablierung_kosten_pro_ha_jahr = (
                 680.00 if etablierungs_detail == "Anpflanzung mit Jungpflanzen" else 410.00
@@ -1000,10 +992,6 @@ with tab1:
             etablierung_kosten_pro_ha_jahr = 0.0
         laufende_kosten_pro_ha_jahr = 0.0
 
-    # Sonderfall-Prüfung für Schilf (Ethanol vs. Biogasanlage)
     sonderkosten_schilf_pro_ha_jahr = 0.0
     entfaellt_ernte_und_transport = False
-    if bewirtschaftung == "Schilf" and verwertung == "Thermische Verwertung" and folge_auswahl == "Ethanol":
-        sonderkosten_schilf_pro_ha_jahr = 2387.00
-        entfaellt_ernte_und_transport = True
-    elif bewirtschaftung == "Schilf" and verwertung == "Energetische Verwertung" and folge
+    if bewirtschaftung == "
