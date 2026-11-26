@@ -287,18 +287,24 @@ with tab1:
                 ["Sommermahd", "Wintermahd"],
                 key=f"mahd_{bewirtschaftung}"
             )
-            ernteform_tmp = st.selectbox(
-                "In welcher Form möchten Sie die Biomasse ernten?",
-                [
-                    "Häckselgut",
-                    "Rundballen",
-                    "Quaderballen",
-                    "Bunde",
-                    "Loses Langgut",
+
+            ernteform_optionen = [
+                "Häckselgut",
+                "Rundballen",
+                "Quaderballen",
+                "Bunde",
+                "Loses Langgut"
+            ]
+            if mahd_tmp != "Sommermahd":
+                ernteform_optionen.extend([
                     "Pelletierte Form (mobile Pelletierungsmaschine)",
                     "Brikettierte Form (mobile Brikettierungsmaschine)"
-                ],
-                key=f"ernteform_{bewirtschaftung}"
+                ])
+
+            ernteform_tmp = st.selectbox(
+                "In welcher Form möchten Sie die Biomasse ernten?",
+                ernteform_optionen,
+                key=f"ernteform_{bewirtschaftung}_{mahd_tmp}"
             )
 
             # 1) Häckselgut
@@ -314,14 +320,17 @@ with tab1:
                 verwertung_tmp = st.selectbox(
                     "Wofür soll das Häckselgut genutzt werden?",
                     bereich_optionen,
-                    key=f"haeckselfeld_bereich_{bewirtschaftung}"
+                    key=f"haeckselfeld_bereich_{bewirtschaftung}_{mahd_tmp}"
                 )
 
                 if verwertung_tmp == "Thermische Verwertung":
+                    thermisch_haeckselfeld_optionen = ["Verbrennung"]
+                    if mahd_tmp != "Sommermahd":
+                        thermisch_haeckselfeld_optionen.extend(["Pellets", "Briketts"])
                     folge_tmp = st.selectbox(
                         "Welche thermische Verwertung soll erfolgen?",
-                        ["Verbrennung"],
-                        key=f"haeckselfeld_thermisch_{bewirtschaftung}"
+                        thermisch_haeckselfeld_optionen,
+                        key=f"haeckselfeld_thermisch_{bewirtschaftung}_{mahd_tmp}"
                     )
 
                 elif verwertung_tmp == "Energetische Verwertung":
@@ -330,17 +339,16 @@ with tab1:
                         energie_optionen.append("Biogasproduktion")
                     if mahd_tmp == "Wintermahd":
                         energie_optionen.append("Direkte Verbrennung")
-                    energie_optionen.extend([
-                        "Pellets und Briketts",
-                        "Zellulose-Ethanol"
-                    ])
+                    if mahd_tmp != "Sommermahd":
+                        energie_optionen.append("Pellets und Briketts")
+                    energie_optionen.append("Zellulose-Ethanol")
                     if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
                         energie_optionen.append("Biogasanlage")
 
                     folge_tmp = st.selectbox(
                         "Welche energetische Verwertung soll erfolgen?",
                         energie_optionen,
-                        key=f"haeckselfeld_energie_{bewirtschaftung}"
+                        key=f"haeckselfeld_energie_{bewirtschaftung}_{mahd_tmp}"
                     )
 
                 elif verwertung_tmp == "Bau- und Werkstoffe":
@@ -361,7 +369,7 @@ with tab1:
                     folge_tmp = st.selectbox(
                         "Welche Verwertung im Bereich Bau- und Werkstoffe soll erfolgen?",
                         stoff_optionen,
-                        key=f"haeckselfeld_stoff_{bewirtschaftung}"
+                        key=f"haeckselfeld_stoff_{bewirtschaftung}_{mahd_tmp}"
                     )
 
                 elif verwertung_tmp == "Gartenbau und Landwirtschaft":
@@ -376,7 +384,7 @@ with tab1:
                     folge_tmp = st.selectbox(
                         "Welche Nutzung im Bereich Gartenbau und Landwirtschaft soll erfolgen?",
                         garten_optionen,
-                        key=f"haeckselfeld_garten_{bewirtschaftung}"
+                        key=f"haeckselfeld_garten_{bewirtschaftung}_{mahd_tmp}"
                     )
 
             # 2) Rundballen / Quaderballen
@@ -438,7 +446,7 @@ with tab1:
                 verwertung_tmp = st.selectbox(
                     f"Welche Verwertung für {ernteform_tmp} streben Sie an?",
                     basis_verwertung,
-                    key=f"ballen_verwertung_{bewirtschaftung}"
+                    key=f"ballen_verwertung_{bewirtschaftung}_{mahd_tmp}"
                 )
 
             # 3) Bunde
@@ -494,7 +502,7 @@ with tab1:
                 verwertung_tmp = st.selectbox(
                     "Welche Verwertung für Bunde streben Sie an?",
                     basis_verwertung,
-                    key=f"bunde_verwertung_{bewirtschaftung}"
+                    key=f"bunde_verwertung_{bewirtschaftung}_{mahd_tmp}"
                 )
 
             # 4) Loses Langgut
@@ -502,7 +510,7 @@ with tab1:
                 verwertung_tmp = st.selectbox(
                     "Wie soll das lose Langgut genutzt werden?",
                     ["Direkte Nutzung", "Weiterverarbeitung"],
-                    key=f"langgut_bereich_{bewirtschaftung}"
+                    key=f"langgut_bereich_{bewirtschaftung}_{mahd_tmp}"
                 )
 
                 if verwertung_tmp == "Direkte Nutzung":
@@ -533,15 +541,18 @@ with tab1:
                     folge_tmp = st.selectbox(
                         "Welche direkte Nutzung soll erfolgen?",
                         direkt_optionen,
-                        key=f"langgut_direkt_{bewirtschaftung}"
+                        key=f"langgut_direkt_{bewirtschaftung}_{mahd_tmp}"
                     )
                 else:
-                    if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
-                        weiter_optionen = [
-                            "Stationäre Pelletieranlage",
-                            "Briketts",
-                            "Biogassubstrat"
-                        ]
+                    if mahd_tmp == "Sommermahd":
+                        if bewirtschaftung == "Schilf":
+                            weiter_optionen = ["Biogassubstrat"]
+                        else:
+                            weiter_optionen = [
+                                "Einblasdämmung",
+                                "Biogassubstrat",
+                                "Pflanzenkohle"
+                            ]
                     else:
                         weiter_optionen = [
                             "Stationäre Pelletieranlage",
@@ -550,29 +561,18 @@ with tab1:
                             "Biogassubstrat",
                             "Pflanzenkohle"
                         ]
-                        if bewirtschaftung == "Schilf" and mahd_tmp == "Wintermahd":
+                        if bewirtschaftung == "Schilf":
                             weiter_optionen.append("Sortierung zu Dachreetbunden")
 
                     folge_tmp = st.selectbox(
                         "Welche Weiterverarbeitung soll erfolgen?",
                         weiter_optionen,
-                        key=f"langgut_weiter_{bewirtschaftung}"
+                        key=f"langgut_weiter_{bewirtschaftung}_{mahd_tmp}"
                     )
 
-            # 5) Pelletierte oder Brikettierte Form (mobile Maschine)
+            # 5) Pelletierte oder Brikettierte Form (mobile Maschine, nur bei Nicht-Sommermahd)
             else:
-                if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
-                    pellet_optionen = [
-                        "Raufutterersatz",
-                        "Organischer Dünger",
-                        "Torfersatz in Kultursubstraten",
-                        "Mulch-Pellets",
-                        "Biokunststoffe & Spritzguss",
-                        "Faserplatten & Dämmstoffe",
-                        "Biogas-Substrat",
-                        "Papier herstellen"
-                    ]
-                elif bewirtschaftung == "Schilf" and mahd_tmp == "Wintermahd":
+                if bewirtschaftung == "Schilf" and mahd_tmp == "Wintermahd":
                     pellet_optionen = [
                         "Verbrennen",
                         "Tiereinstreu",
@@ -601,7 +601,7 @@ with tab1:
                 verwertung_tmp = st.selectbox(
                     f"Welche Verwertung für '{ernteform_tmp}' streben Sie an?",
                     pellet_optionen,
-                    key=f"pellet_brikett_verwertung_{bewirtschaftung}"
+                    key=f"pellet_brikett_verwertung_{bewirtschaftung}_{mahd_tmp}"
                 )
                 folge_tmp = verwertung_tmp
 
@@ -758,10 +758,13 @@ with tab1:
                     key="folge_thermisch_schwarzerle"
                 )
             elif bewirtschaftung == "Schilf":
+                thermisch_schilf_optionen = ["Verbrennung", "Ethanol"]
+                if mahd_tmp != "Sommermahd":
+                    thermisch_schilf_optionen.extend(["Briketts", "Pellets"])
                 folge_tmp = st.selectbox(
                     "Wie möchten Sie das Schilf thermisch nutzen?",
-                    ["Verbrennung", "Briketts", "Pellets", "Ethanol"],
-                    key="folge_thermisch_schilf"
+                    thermisch_schilf_optionen,
+                    key=f"folge_thermisch_schilf_{mahd_tmp}"
                 )
             else:
                 folge_tmp = st.selectbox(
