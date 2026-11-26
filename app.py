@@ -51,6 +51,7 @@ with tab1:
     verwertung = st.session_state.get("moor_verwertung_val", None)
     folge_auswahl = st.session_state.get("moor_folge_val", None)
     unter_folge_auswahl = st.session_state.get("moor_unter_folge_val", None)
+    ballen_winter_option = st.session_state.get("moor_ballen_winter_val", None)
     tier_art = st.session_state.get("moor_tier_art_val", None)
     tier_haltungssystem = st.session_state.get("moor_tier_haltung_val", None)
     tier_vermarktung = st.session_state.get("moor_tier_vermarktung_val", None)
@@ -270,6 +271,7 @@ with tab1:
         verwertung_tmp = None
         folge_tmp = None
         unter_folge_tmp = None
+        ballen_winter_tmp = None
         tier_art_tmp = None
         tier_haltung_tmp = None
         tier_vermarktung_tmp = None
@@ -302,17 +304,28 @@ with tab1:
 
             # 1) Häckselgut
             if ernteform_tmp == "Häckselgut":
+                bereich_optionen = [
+                    "Energetische Verwertung",
+                    "Bau- und Werkstoffe",
+                    "Gartenbau und Landwirtschaft"
+                ]
+                if not (bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd"):
+                    bereich_optionen.append("Thermische Verwertung")
+
                 verwertung_tmp = st.selectbox(
                     "Wofür soll das Häckselgut genutzt werden?",
-                    [
-                        "Energetische Verwertung",
-                        "Bau- und Werkstoffe",
-                        "Gartenbau und Landwirtschaft"
-                    ],
+                    bereich_optionen,
                     key=f"haeckselfeld_bereich_{bewirtschaftung}"
                 )
 
-                if verwertung_tmp == "Energetische Verwertung":
+                if verwertung_tmp == "Thermische Verwertung":
+                    folge_tmp = st.selectbox(
+                        "Welche thermische Verwertung soll erfolgen?",
+                        ["Verbrennung"],
+                        key=f"haeckselfeld_thermisch_{bewirtschaftung}"
+                    )
+
+                elif verwertung_tmp == "Energetische Verwertung":
                     energie_optionen = []
                     if mahd_tmp == "Sommermahd":
                         energie_optionen.append("Biogasproduktion")
@@ -322,6 +335,8 @@ with tab1:
                         "Pellets und Briketts",
                         "Zellulose-Ethanol"
                     ])
+                    if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
+                        energie_optionen.append("Biogasanlage")
 
                     folge_tmp = st.selectbox(
                         "Welche energetische Verwertung soll erfolgen?",
@@ -330,13 +345,20 @@ with tab1:
                     )
 
                 elif verwertung_tmp == "Bau- und Werkstoffe":
-                    stoff_optionen = [
-                        "Einblasdämmung",
-                        "Dämmplatten & Leichtbaumatten",
-                        "Zuschlagstoff für Lehm- und Kalkputze",
-                        "Faserplatten und Biokunststoffe",
-                        "Papier- und Kartonherstellung"
-                    ]
+                    if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
+                        stoff_optionen = [
+                            "Dämmplatten",
+                            "Faserplatten und Biokunststoffe",
+                            "Papier- und Kartonherstellung"
+                        ]
+                    else:
+                        stoff_optionen = [
+                            "Einblasdämmung",
+                            "Dämmplatten & Leichtbaumatten",
+                            "Zuschlagstoff für Lehm- und Kalkputze",
+                            "Faserplatten und Biokunststoffe",
+                            "Papier- und Kartonherstellung"
+                        ]
                     folge_tmp = st.selectbox(
                         "Welche Verwertung im Bereich Bau- und Werkstoffe soll erfolgen?",
                         stoff_optionen,
@@ -360,6 +382,13 @@ with tab1:
 
             # 2) Rundballen / Quaderballen
             elif ernteform_tmp in ["Rundballen", "Quaderballen"]:
+                if mahd_tmp == "Wintermahd":
+                    ballen_winter_tmp = st.selectbox(
+                        "Welche Weiterverarbeitung / Pressung für die Ballen (Wintermahd) ist geplant?",
+                        ["Keine zusätzliche Verarbeitung", "Pellets", "Briketts", "Pressen"],
+                        key=f"ballen_winter_opt_{bewirtschaftung}"
+                    )
+
                 if bewirtschaftung == "Rohrkolben":
                     basis_verwertung = [
                         "Dämmen und Bauen",
@@ -372,15 +401,22 @@ with tab1:
                         "Plattformchemikalien"
                     ]
                 elif bewirtschaftung == "Schilf":
-                    basis_verwertung = [
-                        "Dämmen",
-                        "Werkstoffe",
-                        "Thermische Verwertung",
-                        "Kultursubstrate",
-                        "Einstreu",
-                        "Bio-Aktivkohle",
-                        "Plattformchemikalien"
-                    ]
+                    if mahd_tmp == "Sommermahd":
+                        basis_verwertung = [
+                            "Dämmplatten",
+                            "Kultursubstrate",
+                            "Plattformchemikalien"
+                        ]
+                    else:
+                        basis_verwertung = [
+                            "Dämmen",
+                            "Werkstoffe",
+                            "Thermische Verwertung",
+                            "Kultursubstrate",
+                            "Einstreu",
+                            "Bio-Aktivkohle",
+                            "Plattformchemikalien"
+                        ]
                 elif bewirtschaftung == "Seggen":
                     basis_verwertung = [
                         "Thermische Verwertung",
@@ -406,7 +442,7 @@ with tab1:
                     key=f"ballen_verwertung_{bewirtschaftung}"
                 )
 
-            # 3) Bunde (inkl. Option "Dachreed" bei Schilf)
+            # 3) Bunde
             elif ernteform_tmp == "Bunde":
                 if bewirtschaftung == "Rohrkolben":
                     basis_verwertung = [
@@ -420,16 +456,23 @@ with tab1:
                         "Plattformchemikalien"
                     ]
                 elif bewirtschaftung == "Schilf":
-                    basis_verwertung = [
-                        "Dachreed",
-                        "Dämmen",
-                        "Werkstoffe",
-                        "Thermische Verwertung",
-                        "Kultursubstrate",
-                        "Einstreu",
-                        "Bio-Aktivkohle",
-                        "Plattformchemikalien"
-                    ]
+                    if mahd_tmp == "Sommermahd":
+                        basis_verwertung = [
+                            "Dämmplatten",
+                            "Kultursubstrate",
+                            "Plattformchemikalien"
+                        ]
+                    else:
+                        basis_verwertung = [
+                            "Dachreed",
+                            "Dämmen",
+                            "Werkstoffe",
+                            "Thermische Verwertung",
+                            "Kultursubstrate",
+                            "Einstreu",
+                            "Bio-Aktivkohle",
+                            "Plattformchemikalien"
+                        ]
                 elif bewirtschaftung == "Seggen":
                     basis_verwertung = [
                         "Thermische Verwertung",
@@ -464,28 +507,52 @@ with tab1:
                 )
 
                 if verwertung_tmp == "Direkte Nutzung":
-                    folge_tmp = st.selectbox(
-                        "Welche direkte Nutzung soll erfolgen?",
-                        [
+                    if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
+                        direkt_optionen = [
+                            "Raufutter",
+                            "Heu",
+                            "Silage",
+                            "Dünger",
+                            "Mulchmaterial"
+                        ]
+                    elif bewirtschaftung == "Schilf" and mahd_tmp == "Wintermahd":
+                        direkt_optionen = [
+                            "Heu",
+                            "Einstreu",
+                            "Dünger",
+                            "Mulchmaterial"
+                        ]
+                    else:
+                        direkt_optionen = [
                             "Raufutter",
                             "Heu",
                             "Silage",
                             "Einstreu",
                             "Dünger",
                             "Mulchmaterial"
-                        ],
+                        ]
+                    folge_tmp = st.selectbox(
+                        "Welche direkte Nutzung soll erfolgen?",
+                        direkt_optionen,
                         key=f"langgut_direkt_{bewirtschaftung}"
                     )
                 else:  # Weiterverarbeitung
-                    weiter_optionen = [
-                        "Stationäre Pelletieranlage",
-                        "Briketts",
-                        "Einblasdämmung",
-                        "Biogassubstrat",
-                        "Pflanzenkohle"
-                    ]
-                    if bewirtschaftung == "Schilf" and mahd_tmp == "Wintermahd":
-                        weiter_optionen.append("Sortierung zu Dachreetbunden")
+                    if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
+                        weiter_optionen = [
+                            "Stationäre Pelletieranlage",
+                            "Briketts",
+                            "Biogassubstrat"
+                        ]
+                    else:
+                        weiter_optionen = [
+                            "Stationäre Pelletieranlage",
+                            "Briketts",
+                            "Einblasdämmung",
+                            "Biogassubstrat",
+                            "Pflanzenkohle"
+                        ]
+                        if bewirtschaftung == "Schilf" and mahd_tmp == "Wintermahd":
+                            weiter_optionen.append("Sortierung zu Dachreetbunden")
 
                     folge_tmp = st.selectbox(
                         "Welche Weiterverarbeitung soll erfolgen?",
@@ -495,19 +562,43 @@ with tab1:
 
             # 5) Pelletierte oder Brikettierte Form (mobile Maschine)
             else:
-                pellet_optionen = [
-                    "Verbrennen",
-                    "Tiereinstreu",
-                    "Raufutterersatz",
-                    "Organischer Dünger",
-                    "Torfersatz in Kultursubstraten",
-                    "Mulch-Pellets",
-                    "Biokunststoffe & Spritzguss",
-                    "Faserplatten & Dämmstoffe",
-                    "Pflanzenkohle & Aktivkohle",
-                    "Biogas-Substrat",
-                    "Papier herstellen"
-                ]
+                if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
+                    pellet_optionen = [
+                        "Raufutterersatz",
+                        "Organischer Dünger",
+                        "Torfersatz in Kultursubstraten",
+                        "Mulch-Pellets",
+                        "Biokunststoffe & Spritzguss",
+                        "Faserplatten & Dämmstoffe",
+                        "Biogas-Substrat",
+                        "Papier herstellen"
+                    ]
+                elif bewirtschaftung == "Schilf" and mahd_tmp == "Wintermahd":
+                    pellet_optionen = [
+                        "Verbrennen",
+                        "Tiereinstreu",
+                        "Organischer Dünger",
+                        "Torfersatz in Kultursubstraten",
+                        "Mulch-Pellets",
+                        "Biokunststoffe & Spritzguss",
+                        "Faserplatten & Dämmstoffe",
+                        "Pflanzenkohle & Aktivkohle",
+                        "Papier herstellen"
+                    ]
+                else:
+                    pellet_optionen = [
+                        "Verbrennen",
+                        "Tiereinstreu",
+                        "Raufutterersatz",
+                        "Organischer Dünger",
+                        "Torfersatz in Kultursubstraten",
+                        "Mulch-Pellets",
+                        "Biokunststoffe & Spritzguss",
+                        "Faserplatten & Dämmstoffe",
+                        "Pflanzenkohle & Aktivkohle",
+                        "Biogas-Substrat",
+                        "Papier herstellen"
+                    ]
                 verwertung_tmp = st.selectbox(
                     f"Welche Verwertung für '{ernteform_tmp}' streben Sie an?",
                     pellet_optionen,
@@ -660,12 +751,18 @@ with tab1:
                 key="folge_werkstoffe"
             )
 
-        if verwertung_tmp == "Thermische Verwertung":
+        if verwertung_tmp == "Thermische Verwertung" and ernteform_tmp != "Häckselgut":
             if bewirtschaftung == "Schwarzerle":
                 folge_tmp = st.selectbox(
                     "Wie möchten Sie die Schwarzerle thermisch nutzen?",
                     ["Direkte Verbrennung"],
                     key="folge_thermisch_schwarzerle"
+                )
+            elif bewirtschaftung == "Schilf":
+                folge_tmp = st.selectbox(
+                    "Wie möchten Sie das Schilf thermisch nutzen?",
+                    ["Verbrennung", "Briketts", "Pellets", "Ethanol"],
+                    key="folge_thermisch_schilf"
                 )
             else:
                 folge_tmp = st.selectbox(
@@ -695,12 +792,29 @@ with tab1:
                 key="folge_torfmoos_substrat"
             )
 
-        # Erntemaschinen: entfällt bei PV, Tierhaltung (direkt oder über Nasswiese) und Schwarzerle
+        # Sonderfälle bei Schilf: Ethanol (thermische Verwertung) und Biogasanlage (energetische Verwertung)
+        ist_schilf_ethanol = (
+            bewirtschaftung == "Schilf"
+            and verwertung_tmp == "Thermische Verwertung"
+            and folge_tmp == "Ethanol"
+        )
+        ist_schilf_biogasanlage = (
+            bewirtschaftung == "Schilf"
+            and verwertung_tmp == "Energetische Verwertung"
+            and folge_tmp == "Biogasanlage"
+        )
+        keine_ernte_und_kein_transport = ist_schilf_ethanol or ist_schilf_biogasanlage
+
+        # Erntemaschinen: entfällt bei PV, Tierhaltung, Schwarzerle sowie Schilf-Ethanol / Schilf-Biogasanlage
         ist_tierhaltung = (
             bewirtschaftung == "Tierhaltung"
             or (bewirtschaftung == "Nasswiese" and verwertung_tmp == "Tierhaltung")
         )
-        if bewirtschaftung not in ["Photo-Voltaik", "Tierhaltung", "Schwarzerle"] and not ist_tierhaltung:
+        if (
+            bewirtschaftung not in ["Photo-Voltaik", "Tierhaltung", "Schwarzerle"]
+            and not ist_tierhaltung
+            and not keine_ernte_und_kein_transport
+        ):
             erntetechnik_tmp = st.selectbox(
                 "Wie sieht es mit Erntemaschinen aus?",
                 [
@@ -713,28 +827,49 @@ with tab1:
                 key="moor_erntetechnik"
             )
 
-        # Transport-Abfrage bei Häckselgut, Dachschilf/Dachreed, Ballen und Pellets
+        # Transport-Abfrage bei Häckselgut, Dachschilf/Dachreed, Bunden, losem Langgut, Ballen und Pellets/Briketts
         hat_transport_gut = (
-            ernteform_tmp in [
-                "Häckselgut",
-                "Rundballen",
-                "Quaderballen",
-                "Pelletierte Form (mobile Pelletierungsmaschine)"
-            ]
-            or verwertung_tmp == "Dachreed"
-            or folge_tmp in [
-                "Sortierung zu Dachreetbunden",
-                "Pellets",
-                "Pellets und Briketts",
-                "Stationäre Pelletieranlage",
-                "Brennstoff-Pellets / Briketts"
-            ]
-            or unter_folge_tmp in ["Häckselgut", "Ballen"]
+            not keine_ernte_und_kein_transport
+            and (
+                ernteform_tmp in [
+                    "Häckselgut",
+                    "Rundballen",
+                    "Quaderballen",
+                    "Bunde",
+                    "Loses Langgut",
+                    "Pelletierte Form (mobile Pelletierungsmaschine)",
+                    "Brikettierte Form (mobile Brikettierungsmaschine)"
+                ]
+                or verwertung_tmp == "Dachreed"
+                or folge_tmp in [
+                    "Sortierung zu Dachreetbunden",
+                    "Pellets",
+                    "Briketts",
+                    "Pellets und Briketts",
+                    "Stationäre Pelletieranlage",
+                    "Brennstoff-Pellets / Briketts"
+                ]
+                or unter_folge_tmp in ["Häckselgut", "Ballen"]
+            )
         )
 
-        if hat_transport_gut:
+        # Lagerung entfällt für Bunde und Loses Langgut
+        hat_lager_option = (
+            bewirtschaftung not in ["Photo-Voltaik", "Tierhaltung"]
+            and not ist_tierhaltung
+            and ernteform_tmp not in ["Bunde", "Loses Langgut"]
+        )
+
+        if hat_transport_gut or hat_lager_option:
             st.markdown("---")
-            st.subheader("Transport & Lagerung")
+            if hat_transport_gut and hat_lager_option:
+                st.subheader("Transport & Lagerung")
+            elif hat_transport_gut:
+                st.subheader("Transport")
+            else:
+                st.subheader("Lagerung")
+
+        if hat_transport_gut:
             transport_bekannt_tmp = st.radio(
                 "Wissen Sie, wie weit das Gut vom Hof zur Verwertungsstelle transportiert werden soll?",
                 ["Ja", "Nein"],
@@ -750,29 +885,48 @@ with tab1:
                     index=distanz_optionen.index(transport_km) if transport_km in distanz_optionen else 2,
                     key="moor_transport_km"
                 )
-        else:
-            st.markdown("---")
-            st.subheader("Lagerung")
 
-        # Lagerung für Produkte (immer abfragbar)
-        lagerung_geplant_tmp = st.radio(
-            "Möchten Sie die Produkte lagern?",
-            ["Ja", "Nein"],
-            index=0 if lagerung_geplant == "Ja" else 1,
-            key="moor_lagerung_geplant"
-        )
-        if lagerung_geplant_tmp == "Ja":
-            lager_optionen = [
-                "In einer Halle",
-                "In einem Altgebäude",
-                "Auf einer freien Fläche mit Abdeckung"
-            ]
-            lagerung_art_tmp = st.selectbox(
-                "Wie sollen die Produkte gelagert werden?",
-                lager_optionen,
-                index=lager_optionen.index(lagerung_art) if lagerung_art in lager_optionen else 0,
-                key="moor_lagerung_art"
+        if hat_lager_option:
+            lagerung_geplant_tmp = st.radio(
+                "Möchten Sie die Produkte lagern?",
+                ["Ja", "Nein"],
+                index=0 if lagerung_geplant == "Ja" else 1,
+                key="moor_lagerung_geplant"
             )
+            if lagerung_geplant_tmp == "Ja":
+                # Verfügbare Lageroptionen je nach Ernteform / Produkt
+                ist_pellet_oder_brikett = (
+                    ernteform_tmp in [
+                        "Pelletierte Form (mobile Pelletierungsmaschine)",
+                        "Brikettierte Form (mobile Brikettierungsmaschine)"
+                    ]
+                    or folge_tmp in [
+                        "Pellets",
+                        "Briketts",
+                        "Pellets und Briketts",
+                        "Stationäre Pelletieranlage",
+                        "Brennstoff-Pellets / Briketts"
+                    ]
+                    or ballen_winter_tmp in ["Pellets", "Briketts"]
+                )
+
+                if ist_pellet_oder_brikett:
+                    lager_optionen = ["In einer Halle"]
+                elif ernteform_tmp == "Häckselgut":
+                    lager_optionen = ["In einer Halle", "Auf einer freien Fläche mit Abdeckung"]
+                else:
+                    lager_optionen = [
+                        "In einer Halle",
+                        "In einem Altgebäude",
+                        "Auf einer freien Fläche mit Abdeckung"
+                    ]
+
+                lagerung_art_tmp = st.selectbox(
+                    "Wie sollen die Produkte gelagert werden?",
+                    lager_optionen,
+                    index=lager_optionen.index(lagerung_art) if lagerung_art in lager_optionen else 0,
+                    key="moor_lagerung_art"
+                )
 
         st.session_state.moor_mahd_zeitpunkt_val = mahd_tmp
         st.session_state.moor_ernteform_val = ernteform_tmp
@@ -780,6 +934,7 @@ with tab1:
         st.session_state.moor_verwertung_val = verwertung_tmp
         st.session_state.moor_folge_val = folge_tmp
         st.session_state.moor_unter_folge_val = unter_folge_tmp
+        st.session_state.moor_ballen_winter_val = ballen_winter_tmp
         st.session_state.moor_tier_art_val = tier_art_tmp
         st.session_state.moor_tier_haltung_val = tier_haltung_tmp
         st.session_state.moor_tier_vermarktung_val = tier_vermarktung_tmp
@@ -795,6 +950,7 @@ with tab1:
         verwertung = verwertung_tmp
         folge_auswahl = folge_tmp
         unter_folge_auswahl = unter_folge_tmp
+        ballen_winter_option = ballen_winter_tmp
         tier_art = tier_art_tmp
         tier_haltungssystem = tier_haltung_tmp
         tier_vermarktung = tier_vermarktung_tmp
@@ -815,14 +971,24 @@ with tab1:
     vorher_aufschlag = 1.15 if vorher_nutzung == "Ackerland" else 1.0
     co2_minderung_moor = flaechen_groesse * moor_basis_co2 * vorher_aufschlag
 
-    # Etablierungskosten (€/ha/Jahr)
-    if bewirtschaftung == "Schilf":
+    # Etablierungskosten & laufende Pflegekosten (€/ha/Jahr)
+    if bewirtschaftung == "Schilf" and ernteform_biomasse == "Loses Langgut":
+        # Bei losem Langgut gelten die spezifischen Produktionskosten zusätzlich zu den Grundstückskosten
+        if etablierungs_art == "Erstetablierung":
+            etablierung_kosten_pro_ha_jahr = (
+                680.00 if etablierungs_detail == "Anpflanzung mit Jungpflanzen" else 410.00
+            )
+        else:
+            etablierung_kosten_pro_ha_jahr = 380.00
+        laufende_kosten_pro_ha_jahr = 0.0
+    elif bewirtschaftung == "Schilf":
         if etablierungs_art == "Erstetablierung":
             etablierung_kosten_pro_ha_jahr = (
                 378.50 if etablierungs_detail == "Anpflanzung mit Jungpflanzen" else 247.22
             )
         else:
             etablierung_kosten_pro_ha_jahr = 224.00
+        laufende_kosten_pro_ha_jahr = 693.75
     else:
         if etablierungs_art == "Erstetablierung":
             etablierung_kosten_pro_ha_jahr = (
@@ -832,235 +998,12 @@ with tab1:
             etablierung_kosten_pro_ha_jahr = 80.0
         else:
             etablierung_kosten_pro_ha_jahr = 0.0
+        laufende_kosten_pro_ha_jahr = 0.0
 
-    # Laufende Pflege-, Verwallungs- & Abgabenkosten (€/ha/Jahr)
-    laufende_kosten_pro_ha_jahr = 693.75 if bewirtschaftung == "Schilf" else 0.0
-
-    # Erntekosten (€/ha/Jahr)
-    if bewirtschaftung == "Schilf":
-        if ernteform_biomasse in ["Rundballen", "Quaderballen", "Häckselgut"]:
-            erntekosten_pro_ha_jahr = 410.00
-        elif ernteform_biomasse == "Bunde":
-            erntekosten_pro_ha_jahr = 640.00
-        else:
-            erntekosten_pro_ha_jahr = 350.00
-    else:
-        erntekosten_pro_ha_jahr = {
-            None: 120.0,
-            "Eigene Maschinen vorhanden, die auf der Fläche fahren können": 150.0,
-            "Zugang zu einem Maschinenring": 220.0,
-            "Vorhandene Maschinen können angepasst werden": 260.0,
-            "Spezialtechnik kaufen": 420.0,
-            "Spezialfirmen beauftragen": 480.0
-        }[erntetechnik]
-
-    # Transport- & Lagerkosten (€/ha/Jahr)
-    transport_kosten_pro_ha_jahr = 0.0
-    if transport_bekannt == "Ja":
-        transport_kosten_pro_ha_jahr = transport_km * 3.5  # Richtwert pro km und ha/Jahr
-
-    lager_kosten_pro_ha_jahr = 0.0
-    if lagerung_geplant == "Ja":
-        lager_kosten_pro_ha_jahr = {
-            "In einer Halle": 120.0,
-            "In einem Altgebäude": 65.0,
-            "Auf einer freien Fläche mit Abdeckung": 35.0
-        }.get(lagerung_art, 0.0)
-
-    kauf_annuitaet_jahr = kaufkosten_gesamt / 10.0
-
-    kosten_bauer_jahr = (
-        flaechen_groesse * (
-            etablierung_kosten_pro_ha_jahr
-            + laufende_kosten_pro_ha_jahr
-            + erntekosten_pro_ha_jahr
-            + transport_kosten_pro_ha_jahr
-            + lager_kosten_pro_ha_jahr
-        )
-        + kauf_annuitaet_jahr
-    )
-
-    kosten_volk_jahr = (
-        flaechen_groesse * 850.0
-        + flaechen_groesse * (etablierung_kosten_pro_ha_jahr + laufende_kosten_pro_ha_jahr)
-        + kauf_annuitaet_jahr
-    )
-
-    nutzung_erloes_pro_ha_jahr = {
-        "Rohrglanzgras": 950.0,
-        "Schwarzerle": 1100.0,
-        "Nasswiese": 750.0,
-        "Schilf": 1050.0,
-        "Rohrkolben": 1150.0,
-        "Torfmoos": 1400.0,
-        "Tierhaltung": 900.0,
-        "Photo-Voltaik": 2200.0,
-        "Seggen": 700.0
-    }.get(bewirtschaftung, 850.0)
-
-    erloes_moor = flaechen_groesse * (bisherige_ertraege_pro_ha + nutzung_erloes_pro_ha_jahr)
-    netto_ertrag_moor = erloes_moor - kosten_bauer_jahr
-
-    kosten_pro_t_bauer = (kosten_bauer_jahr / co2_minderung_moor) if co2_minderung_moor > 0 else 0.0
-    kosten_pro_t_volk = (kosten_volk_jahr / co2_minderung_moor) if co2_minderung_moor > 0 else 0.0
-
-    if st.session_state.moor_step == 2:
-        st.markdown("---")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric(label="Abgeschiedenes / Eingespartes CO₂", value=f"{co2_minderung_moor:,.1f} t/Jahr")
-            st.metric(label="Gesamtkosten / Jahr (Bauer)", value=f"{kosten_bauer_jahr:,.2f} €")
-            st.metric(label="Gesamtkosten / Jahr (Volkswirtschaft)", value=f"{kosten_volk_jahr:,.2f} €")
-        with col2:
-            st.metric(label="Kosten pro Tonne CO₂ (Bauer)", value=f"{kosten_pro_t_bauer:,.2f} € / t CO₂")
-            st.metric(label="Kosten pro Tonne CO₂ (Volkswirtschaft)", value=f"{kosten_pro_t_volk:,.2f} € / t CO₂")
-            st.metric(label="Netto-Ertrag (Erlös - Kosten Bauer)", value=f"{netto_ertrag_moor:,.2f} €/Jahr")
-
-
-# ==========================================
-# TAB 2: BECCS-BERECHNUNG
-# ==========================================
-with tab2:
-    st.header("BECCS-Berechnung (Carbon Capture & Storage)")
-
-    beccs_technologie = st.selectbox(
-        "Technologie zur CO₂-Abscheidung:",
-        ["Aminwäsche (Post-Combustion)", "Oxyfuel-Verfahren", "Druckwechseladsorption (PSA)"],
-        key="beccs_tech"
-    )
-    bauflaeche = st.number_input(
-        "Baufläche der BECCS-Anlage (m²):",
-        min_value=0.0,
-        value=2500.0,
-        step=100.0,
-        key="beccs_flaeche"
-    )
-    biomasse_herkunft = st.selectbox(
-        "Herkunft der Biomasse:",
-        ["Regional (< 50 km)", "National (50 - 200 km)", "International (> 200 km)"],
-        key="beccs_herkunft"
-    )
-    biomasse_art = st.selectbox(
-        "Woraus besteht die Biomasse (Zusammensetzung):",
-        ["Forstrestholz / Altholz", "Landwirtschaftliche Reststoffe (Stroh)", "Spezielle Energiepflanzen (Miscanthus)"],
-        key="beccs_art"
-    )
-    biomasse_menge = st.number_input(
-        "Biomasse-Einsatz (t/Jahr):",
-        min_value=0.0,
-        value=5000.0,
-        step=100.0,
-        key="beccs_biomasse"
-    )
-    abscheide_grad = st.slider(
-        "CO₂-Abscheidegrad (%):",
-        min_value=50,
-        max_value=100,
-        value=90,
-        key="beccs_grad"
-    )
-    co2_preis = st.number_input(
-        "Aktueller CO₂-Zertifikatspreis (€/t CO₂):",
-        min_value=0.0,
-        value=120.0,
-        step=5.0,
-        key="beccs_preis"
-    )
-
-    tech_kosten_faktor = {
-        "Aminwäsche (Post-Combustion)": 90.0,
-        "Oxyfuel-Verfahren": 110.0,
-        "Druckwechseladsorption (PSA)": 80.0
-    }[beccs_technologie]
-
-    herkunft_faktor = {
-        "Regional (< 50 km)": 10.0,
-        "National (50 - 200 km)": 25.0,
-        "International (> 200 km)": 50.0
-    }[biomasse_herkunft]
-
-    biomasse_faktor = {
-        "Forstrestholz / Altholz": 15.0,
-        "Landwirtschaftliche Reststoffe (Stroh)": 20.0,
-        "Spezielle Energiepflanzen (Miscanthus)": 40.0
-    }[biomasse_art]
-
-    flaechen_kosten_jahr = bauflaeche * 15.0
-    co2_abgeschieden = biomasse_menge * 1.2 * (abscheide_grad / 100)
-
-    if co2_abgeschieden > 0:
-        gesamtkosten_jahr_beccs = (tech_kosten_faktor + herkunft_faktor + biomasse_faktor) * co2_abgeschieden + flaechen_kosten_jahr
-        kosten_pro_tonne_beccs = gesamtkosten_jahr_beccs / co2_abgeschieden
-    else:
-        gesamtkosten_jahr_beccs = 0.0
-        kosten_pro_tonne_beccs = 0.0
-
-    co2_erloes_beccs = co2_abgeschieden * co2_preis
-    gewinn_verlust_beccs = co2_erloes_beccs - gesamtkosten_jahr_beccs
-    beccs_volk_kosten_jahr = gesamtkosten_jahr_beccs * 0.4
-
-    st.markdown("---")
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric(label="Abgeschiedenes CO₂", value=f"{co2_abgeschieden:,.1f} t/Jahr")
-        st.metric(label="Gesamtkosten / Jahr (Firma)", value=f"{gesamtkosten_jahr_beccs:,.2f} €")
-    with col2:
-        st.metric(label="Kosten pro Tonne CO₂", value=f"{kosten_pro_tonne_beccs:,.2f} € / t CO₂")
-        st.metric(label="Netto-Ertrag (Erlös - Kosten)", value=f"{gewinn_verlust_beccs:,.2f} €/Jahr")
-
-
-# ==========================================
-# TAB 3: 10-JAHRES-VERGLEICH
-# ==========================================
-with tab3:
-    st.header("📊 10-Jahres-Vergleich: Moor & BECCS")
-
-    jahre = list(range(1, 11))
-
-    moor_bauer_ertraege_10j = [netto_ertrag_moor * j for j in jahre]
-    moor_volk_kosten_10j = [kosten_volk_jahr * j for j in jahre]
-    beccs_firma_kosten_10j = [gesamtkosten_jahr_beccs * j for j in jahre]
-    beccs_volk_kosten_10j = [beccs_volk_kosten_jahr * j for j in jahre]
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Scatter(
-        x=jahre,
-        y=moor_bauer_ertraege_10j,
-        mode="lines",
-        name="Moor: Erträge Bauern",
-        line=dict(color="green", dash="dash")
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=jahre,
-        y=moor_volk_kosten_10j,
-        mode="lines",
-        name="Moor: Kosten Volkswirtschaft",
-        line=dict(color="green", dash="solid")
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=jahre,
-        y=beccs_firma_kosten_10j,
-        mode="lines",
-        name="BECCS: Kosten Firma",
-        line=dict(color="blue", dash="dash")
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=jahre,
-        y=beccs_volk_kosten_10j,
-        mode="lines",
-        name="BECCS: Kosten Volkswirtschaft",
-        line=dict(color="blue", dash="solid")
-    ))
-
-    fig.update_layout(
-        title="Entwicklung über 10 Jahre (€)",
-        xaxis_title="Jahre",
-        yaxis_title="Euro (€)",
-        template="plotly_white"
-    )
-
-    st.plotly_chart(fig, use_container_width=True)
+    # Sonderfall-Prüfung für Schilf (Ethanol vs. Biogasanlage)
+    sonderkosten_schilf_pro_ha_jahr = 0.0
+    entfaellt_ernte_und_transport = False
+    if bewirtschaftung == "Schilf" and verwertung == "Thermische Verwertung" and folge_auswahl == "Ethanol":
+        sonderkosten_schilf_pro_ha_jahr = 2387.00
+        entfaellt_ernte_und_transport = True
+    elif bewirtschaftung == "Schilf" and verwertung == "Energetische Verwertung" and folge
