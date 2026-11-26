@@ -288,18 +288,16 @@ def beste_schilf_option_ermitteln(optionen, bewertungs_fn):
     return beste_opt, bester_wert
 
 
-def format_schilf_option(opt, beste_opt, ist_schilf):
+def format_radio_schilf_option(opt, beste_opt, ist_schilf):
     if ist_schilf and opt == beste_opt:
-        return f"🟢 :green[{opt} (Höchster Netto-Ertrag)]"
+        return f":green[{opt}]"
     return opt
 
 
-def render_schilf_empfehlung_hinweis(beste_opt, bester_wert, ist_schilf):
+def render_gruene_selectbox_option(beste_opt, ist_schilf):
     if ist_schilf and beste_opt is not None:
         st.markdown(
-            f"<span style='color:#15803d; font-weight:600;'>"
-            f"✓ Beste Option für maximalen Netto-Ertrag: {beste_opt} ({bester_wert:,.2f} €/Jahr)"
-            f"</span>",
+            f"<span style='color:#15803d; font-weight:600;'>{beste_opt}</span>",
             unsafe_allow_html=True
         )
 
@@ -560,6 +558,8 @@ with tab1:
 
     # --- SCHRITT 0: STARTMASKE ---
     if st.session_state.moor_step == 0:
+        st.success("💡 **Hinweis:** Optionen in :green[**grüner Schrift**] kennzeichnen jeweils die Option mit dem höchsten wirtschaftlichen Erlös.")
+
         st.subheader("Schritt 1 von 3: Startmaske – Fläche & Ausgangslage")
 
         bundesland_optionen = [
@@ -711,9 +711,9 @@ with tab1:
         etab_detail_tmp = None
         if bew_tmp not in ["Tierhaltung", "Photo-Voltaik"]:
             etab_optionen = ["Natürliche Sukzession", "Erstetablierung"]
-            beste_etab, bester_etab_wert = (None, None)
+            beste_etab, _ = (None, None)
             if ist_schilf_step1:
-                beste_etab, bester_etab_wert = beste_schilf_option_ermitteln(
+                beste_etab, _ = beste_schilf_option_ermitteln(
                     etab_optionen,
                     lambda opt: max_netto_fuer_schilf_teilbaum(
                         flaechen_groesse, ertrag_tmp, kaufkosten_gesamt, etab_art=opt
@@ -724,16 +724,15 @@ with tab1:
                 "Möchten Sie natürliche Sukzession oder eine Erstetablierung durchführen?",
                 etab_optionen,
                 index=0 if etablierungs_art != "Erstetablierung" else 1,
-                format_func=lambda opt: format_schilf_option(opt, beste_etab, ist_schilf_step1),
+                format_func=lambda opt: format_radio_schilf_option(opt, beste_etab, ist_schilf_step1),
                 key="input_etablierung"
             )
-            render_schilf_empfehlung_hinweis(beste_etab, bester_etab_wert, ist_schilf_step1)
 
             if etab_tmp == "Erstetablierung":
                 detail_optionen = ["Aussaat", "Anpflanzung mit Jungpflanzen"]
-                beste_detail, bester_detail_wert = (None, None)
+                beste_detail, _ = (None, None)
                 if ist_schilf_step1:
-                    beste_detail, bester_detail_wert = beste_schilf_option_ermitteln(
+                    beste_detail, _ = beste_schilf_option_ermitteln(
                         detail_optionen,
                         lambda opt: max_netto_fuer_schilf_teilbaum(
                             flaechen_groesse, ertrag_tmp, kaufkosten_gesamt,
@@ -745,10 +744,9 @@ with tab1:
                     "Wie erfolgt die Erstetablierung?",
                     detail_optionen,
                     index=0 if etablierungs_detail != "Anpflanzung mit Jungpflanzen" else 1,
-                    format_func=lambda opt: format_schilf_option(opt, beste_detail, ist_schilf_step1),
+                    format_func=lambda opt: format_radio_schilf_option(opt, beste_detail, ist_schilf_step1),
                     key="input_etablierung_detail"
                 )
-                render_schilf_empfehlung_hinweis(beste_detail, bester_detail_wert, ist_schilf_step1)
 
         st.markdown("---")
         if st.button("Weiter →", type="primary", key="btn_weiter_1"):
@@ -790,9 +788,9 @@ with tab1:
         # A) Rohrglanzgras, Schilf, Rohrkolben, Seggen
         if bewirtschaftung in ["Rohrglanzgras", "Schilf", "Rohrkolben", "Seggen"]:
             mahd_optionen = ["Sommermahd", "Wintermahd"]
-            beste_mahd, bester_mahd_wert = (None, None)
+            beste_mahd, _ = (None, None)
             if ist_schilf:
-                beste_mahd, bester_mahd_wert = beste_schilf_option_ermitteln(
+                beste_mahd, _ = beste_schilf_option_ermitteln(
                     mahd_optionen,
                     lambda opt: max_netto_fuer_schilf_teilbaum(
                         flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -803,10 +801,9 @@ with tab1:
             mahd_tmp = st.radio(
                 f"Wann erfolgt die Mahd bei {bewirtschaftung}?",
                 mahd_optionen,
-                format_func=lambda opt: format_schilf_option(opt, beste_mahd, ist_schilf),
+                format_func=lambda opt: format_radio_schilf_option(opt, beste_mahd, ist_schilf),
                 key=f"mahd_{bewirtschaftung}"
             )
-            render_schilf_empfehlung_hinweis(beste_mahd, bester_mahd_wert, ist_schilf)
 
             ernteform_optionen = [
                 "Häckselgut",
@@ -821,9 +818,9 @@ with tab1:
                     "Brikettierte Form (mobile Brikettierungsmaschine)"
                 ])
 
-            beste_ernteform, bester_ernteform_wert = (None, None)
+            beste_ernteform, _ = (None, None)
             if ist_schilf:
-                beste_ernteform, bester_ernteform_wert = beste_schilf_option_ermitteln(
+                beste_ernteform, _ = beste_schilf_option_ermitteln(
                     ernteform_optionen,
                     lambda opt: max_netto_fuer_schilf_teilbaum(
                         flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -832,13 +829,12 @@ with tab1:
                     )
                 )
 
+            render_gruene_selectbox_option(beste_ernteform, ist_schilf)
             ernteform_tmp = st.selectbox(
                 "In welcher Form möchten Sie die Biomasse ernten?",
                 ernteform_optionen,
-                format_func=lambda opt: format_schilf_option(opt, beste_ernteform, ist_schilf),
                 key=f"ernteform_{bewirtschaftung}_{mahd_tmp}"
             )
-            render_schilf_empfehlung_hinweis(beste_ernteform, bester_ernteform_wert, ist_schilf)
 
             # 1) Häckselgut
             if ernteform_tmp == "Häckselgut":
@@ -850,9 +846,9 @@ with tab1:
                 if not (bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd"):
                     bereich_optionen.append("Thermische Verwertung")
 
-                beste_verw, bester_verw_wert = (None, None)
+                beste_verw, _ = (None, None)
                 if ist_schilf:
-                    beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                    beste_verw, _ = beste_schilf_option_ermitteln(
                         bereich_optionen,
                         lambda opt: max_netto_fuer_schilf_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -861,22 +857,21 @@ with tab1:
                         )
                     )
 
+                render_gruene_selectbox_option(beste_verw, ist_schilf)
                 verwertung_tmp = st.selectbox(
                     "Wofür soll das Häckselgut genutzt werden?",
                     bereich_optionen,
-                    format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                     key=f"haeckselfeld_bereich_{bewirtschaftung}_{mahd_tmp}"
                 )
-                render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
 
                 if verwertung_tmp == "Thermische Verwertung":
                     thermisch_haeckselfeld_optionen = ["Verbrennung"]
                     if mahd_tmp != "Sommermahd":
                         thermisch_haeckselfeld_optionen.extend(["Pellets", "Briketts"])
 
-                    beste_folge, bester_folge_wert = (None, None)
+                    beste_folge, _ = (None, None)
                     if ist_schilf:
-                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                        beste_folge, _ = beste_schilf_option_ermitteln(
                             thermisch_haeckselfeld_optionen,
                             lambda opt: max_netto_fuer_schilf_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -886,13 +881,12 @@ with tab1:
                             )
                         )
 
+                    render_gruene_selectbox_option(beste_folge, ist_schilf)
                     folge_tmp = st.selectbox(
                         "Welche thermische Verwertung soll erfolgen?",
                         thermisch_haeckselfeld_optionen,
-                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"haeckselfeld_thermisch_{bewirtschaftung}_{mahd_tmp}"
                     )
-                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
                 elif verwertung_tmp == "Energetische Verwertung":
                     energie_optionen = []
@@ -906,9 +900,9 @@ with tab1:
                     if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
                         energie_optionen.append("Biogasanlage")
 
-                    beste_folge, bester_folge_wert = (None, None)
+                    beste_folge, _ = (None, None)
                     if ist_schilf:
-                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                        beste_folge, _ = beste_schilf_option_ermitteln(
                             energie_optionen,
                             lambda opt: max_netto_fuer_schilf_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -918,13 +912,12 @@ with tab1:
                             )
                         )
 
+                    render_gruene_selectbox_option(beste_folge, ist_schilf)
                     folge_tmp = st.selectbox(
                         "Welche energetische Verwertung soll erfolgen?",
                         energie_optionen,
-                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"haeckselfeld_energie_{bewirtschaftung}_{mahd_tmp}"
                     )
-                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
                 elif verwertung_tmp == "Bau- und Werkstoffe":
                     if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
@@ -942,9 +935,9 @@ with tab1:
                             "Papier- und Kartonherstellung"
                         ]
 
-                    beste_folge, bester_folge_wert = (None, None)
+                    beste_folge, _ = (None, None)
                     if ist_schilf:
-                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                        beste_folge, _ = beste_schilf_option_ermitteln(
                             stoff_optionen,
                             lambda opt: max_netto_fuer_schilf_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -954,13 +947,12 @@ with tab1:
                             )
                         )
 
+                    render_gruene_selectbox_option(beste_folge, ist_schilf)
                     folge_tmp = st.selectbox(
                         "Welche Verwertung im Bereich Bau- und Werkstoffe soll erfolgen?",
                         stoff_optionen,
-                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"haeckselfeld_stoff_{bewirtschaftung}_{mahd_tmp}"
                     )
-                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
                 elif verwertung_tmp == "Gartenbau und Landwirtschaft":
                     garten_optionen = [
@@ -971,9 +963,9 @@ with tab1:
                     if mahd_tmp == "Wintermahd":
                         garten_optionen.insert(2, "Tiereinstreu")
 
-                    beste_folge, bester_folge_wert = (None, None)
+                    beste_folge, _ = (None, None)
                     if ist_schilf:
-                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                        beste_folge, _ = beste_schilf_option_ermitteln(
                             garten_optionen,
                             lambda opt: max_netto_fuer_schilf_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -983,21 +975,20 @@ with tab1:
                             )
                         )
 
+                    render_gruene_selectbox_option(beste_folge, ist_schilf)
                     folge_tmp = st.selectbox(
                         "Welche Nutzung im Bereich Gartenbau und Landwirtschaft soll erfolgen?",
                         garten_optionen,
-                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"haeckselfeld_garten_{bewirtschaftung}_{mahd_tmp}"
                     )
-                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
             # 2) Rundballen / Quaderballen
             elif ernteform_tmp in ["Rundballen", "Quaderballen"]:
                 if mahd_tmp == "Wintermahd":
                     ballen_opt_list = ["Keine zusätzliche Verarbeitung", "Pellets", "Briketts", "Pressen"]
-                    beste_bw, bester_bw_wert = (None, None)
+                    beste_bw, _ = (None, None)
                     if ist_schilf:
-                        beste_bw, bester_bw_wert = beste_schilf_option_ermitteln(
+                        beste_bw, _ = beste_schilf_option_ermitteln(
                             ballen_opt_list,
                             lambda opt: max_netto_fuer_schilf_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1006,13 +997,12 @@ with tab1:
                             )
                         )
 
+                    render_gruene_selectbox_option(beste_bw, ist_schilf)
                     ballen_winter_tmp = st.selectbox(
                         "Welche Weiterverarbeitung / Pressung für die Ballen (Wintermahd) ist geplant?",
                         ballen_opt_list,
-                        format_func=lambda opt: format_schilf_option(opt, beste_bw, ist_schilf),
                         key=f"ballen_winter_opt_{bewirtschaftung}"
                     )
-                    render_schilf_empfehlung_hinweis(beste_bw, bester_bw_wert, ist_schilf)
 
                     if ballen_winter_tmp != "Keine zusätzliche Verarbeitung":
                         ballen_endprodukt_gewuenscht = True
@@ -1067,9 +1057,9 @@ with tab1:
                             "Bau- & Dämmstoffe"
                         ]
 
-                    beste_verw, bester_verw_wert = (None, None)
+                    beste_verw, _ = (None, None)
                     if ist_schilf:
-                        beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                        beste_verw, _ = beste_schilf_option_ermitteln(
                             basis_verwertung,
                             lambda opt: max_netto_fuer_schilf_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1079,13 +1069,12 @@ with tab1:
                             )
                         )
 
+                    render_gruene_selectbox_option(beste_verw, ist_schilf)
                     verwertung_tmp = st.selectbox(
                         f"Welche Verwertung für {ernteform_tmp} streben Sie an?",
                         basis_verwertung,
-                        format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                         key=f"ballen_verwertung_{bewirtschaftung}_{mahd_tmp}"
                     )
-                    render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
 
             # 3) Bunde
             elif ernteform_tmp == "Bunde":
@@ -1137,9 +1126,9 @@ with tab1:
                         "Bau- & Dämmstoffe"
                     ]
 
-                beste_verw, bester_verw_wert = (None, None)
+                beste_verw, _ = (None, None)
                 if ist_schilf:
-                    beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                    beste_verw, _ = beste_schilf_option_ermitteln(
                         basis_verwertung,
                         lambda opt: max_netto_fuer_schilf_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1148,20 +1137,19 @@ with tab1:
                         )
                     )
 
+                render_gruene_selectbox_option(beste_verw, ist_schilf)
                 verwertung_tmp = st.selectbox(
                     "Welche Verwertung für Bunde streben Sie an?",
                     basis_verwertung,
-                    format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                     key=f"bunde_verwertung_{bewirtschaftung}_{mahd_tmp}"
                 )
-                render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
 
             # 4) Loses Langgut
             elif ernteform_tmp == "Loses Langgut":
                 langgut_bereiche = ["Direkte Nutzung", "Weiterverarbeitung"]
-                beste_verw, bester_verw_wert = (None, None)
+                beste_verw, _ = (None, None)
                 if ist_schilf:
-                    beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                    beste_verw, _ = beste_schilf_option_ermitteln(
                         langgut_bereiche,
                         lambda opt: max_netto_fuer_schilf_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1170,13 +1158,12 @@ with tab1:
                         )
                     )
 
+                render_gruene_selectbox_option(beste_verw, ist_schilf)
                 verwertung_tmp = st.selectbox(
                     "Wie soll das lose Langgut genutzt werden?",
                     langgut_bereiche,
-                    format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                     key=f"langgut_bereich_{bewirtschaftung}_{mahd_tmp}"
                 )
-                render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
 
                 if verwertung_tmp == "Direkte Nutzung":
                     if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
@@ -1204,9 +1191,9 @@ with tab1:
                             "Mulchmaterial"
                         ]
 
-                    beste_folge, bester_folge_wert = (None, None)
+                    beste_folge, _ = (None, None)
                     if ist_schilf:
-                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                        beste_folge, _ = beste_schilf_option_ermitteln(
                             direkt_optionen,
                             lambda opt: max_netto_fuer_schilf_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1216,13 +1203,12 @@ with tab1:
                             )
                         )
 
+                    render_gruene_selectbox_option(beste_folge, ist_schilf)
                     folge_tmp = st.selectbox(
                         "Welche direkte Nutzung soll erfolgen?",
                         direkt_optionen,
-                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"langgut_direkt_{bewirtschaftung}_{mahd_tmp}"
                     )
-                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
                 else:
                     if mahd_tmp == "Sommermahd":
                         if bewirtschaftung == "Schilf":
@@ -1244,9 +1230,9 @@ with tab1:
                         if bewirtschaftung == "Schilf":
                             weiter_optionen.append("Sortierung zu Dachreetbunden")
 
-                    beste_folge, bester_folge_wert = (None, None)
+                    beste_folge, _ = (None, None)
                     if ist_schilf:
-                        beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                        beste_folge, _ = beste_schilf_option_ermitteln(
                             weiter_optionen,
                             lambda opt: max_netto_fuer_schilf_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1256,13 +1242,12 @@ with tab1:
                             )
                         )
 
+                    render_gruene_selectbox_option(beste_folge, ist_schilf)
                     folge_tmp = st.selectbox(
                         "Welche Weiterverarbeitung soll erfolgen?",
                         weiter_optionen,
-                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"langgut_weiter_{bewirtschaftung}_{mahd_tmp}"
                     )
-                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
             # 5) Pelletierte oder Brikettierte Form (mobile Maschine, nur bei Nicht-Sommermahd)
             else:
@@ -1293,9 +1278,9 @@ with tab1:
                         "Papier herstellen"
                     ]
 
-                beste_verw, bester_verw_wert = (None, None)
+                beste_verw, _ = (None, None)
                 if ist_schilf:
-                    beste_verw, bester_verw_wert = beste_schilf_option_ermitteln(
+                    beste_verw, _ = beste_schilf_option_ermitteln(
                         pellet_optionen,
                         lambda opt: max_netto_fuer_schilf_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1304,13 +1289,12 @@ with tab1:
                         )
                     )
 
+                render_gruene_selectbox_option(beste_verw, ist_schilf)
                 verwertung_tmp = st.selectbox(
                     f"Welche Verwertung für '{ernteform_tmp}' streben Sie an?",
                     pellet_optionen,
-                    format_func=lambda opt: format_schilf_option(opt, beste_verw, ist_schilf),
                     key=f"pellet_brikett_verwertung_{bewirtschaftung}_{mahd_tmp}"
                 )
-                render_schilf_empfehlung_hinweis(beste_verw, bester_verw_wert, ist_schilf)
                 folge_tmp = verwertung_tmp
 
         # B) Schwarzerle
@@ -1447,7 +1431,7 @@ with tab1:
 
             if bewirtschaftung == "Schilf" and verwertung_tmp == "Dämmen":
                 schilf_daemm_opts = ["Dämmplatten", "Putzträger"]
-                beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                beste_folge, _ = beste_schilf_option_ermitteln(
                     schilf_daemm_opts,
                     lambda opt: max_netto_fuer_schilf_teilbaum(
                         flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1456,19 +1440,18 @@ with tab1:
                         verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
                     )
                 )
+                render_gruene_selectbox_option(beste_folge, ist_schilf)
                 folge_tmp = st.selectbox(
                     "Was möchten Sie aus Schilf zum Dämmen herstellen?",
                     schilf_daemm_opts,
-                    format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                     key="folge_schilf_daemmen"
                 )
-                render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
             if verwertung_tmp == "Werkstoffe":
                 werkstoff_opts = ["Plattenwerkstoffe", "Formteile"]
-                beste_folge, bester_folge_wert = (None, None)
+                beste_folge, _ = (None, None)
                 if ist_schilf:
-                    beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                    beste_folge, _ = beste_schilf_option_ermitteln(
                         werkstoff_opts,
                         lambda opt: max_netto_fuer_schilf_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1477,13 +1460,12 @@ with tab1:
                             verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
                         )
                     )
+                render_gruene_selectbox_option(beste_folge, ist_schilf)
                 folge_tmp = st.selectbox(
                     "Welche Werkstoffvariante möchten Sie herstellen?",
                     werkstoff_opts,
-                    format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                     key="folge_werkstoffe"
                 )
-                render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
 
             if verwertung_tmp == "Thermische Verwertung" and ernteform_tmp != "Häckselgut":
                 if bewirtschaftung == "Schwarzerle":
@@ -1497,7 +1479,7 @@ with tab1:
                     if mahd_tmp != "Sommermahd":
                         thermisch_schilf_optionen.extend(["Briketts", "Pellets"])
 
-                    beste_folge, bester_folge_wert = beste_schilf_option_ermitteln(
+                    beste_folge, _ = beste_schilf_option_ermitteln(
                         thermisch_schilf_optionen,
                         lambda opt: max_netto_fuer_schilf_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1506,13 +1488,12 @@ with tab1:
                             verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
                         )
                     )
+                    render_gruene_selectbox_option(beste_folge, ist_schilf)
                     folge_tmp = st.selectbox(
                         "Wie möchten Sie das Schilf thermisch nutzen?",
                         thermisch_schilf_optionen,
-                        format_func=lambda opt: format_schilf_option(opt, beste_folge, ist_schilf),
                         key=f"folge_thermisch_schilf_{mahd_tmp}"
                     )
-                    render_schilf_empfehlung_hinweis(beste_folge, bester_folge_wert, ist_schilf)
                 else:
                     folge_tmp = st.selectbox(
                         "Wie möchten Sie die Biomasse thermisch nutzen?",
@@ -1622,9 +1603,9 @@ with tab1:
 
         if hat_transport_gut:
             tb_optionen = ["Ja", "Nein"]
-            beste_tb, bester_tb_wert = (None, None)
+            beste_tb, _ = (None, None)
             if ist_schilf:
-                beste_tb, bester_tb_wert = beste_schilf_option_ermitteln(
+                beste_tb, _ = beste_schilf_option_ermitteln(
                     tb_optionen,
                     lambda opt: max_netto_fuer_schilf_teilbaum(
                         flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1640,16 +1621,15 @@ with tab1:
                 "Wissen Sie, wie weit das Gut vom Hof zur Verwertungsstelle transportiert werden soll?",
                 tb_optionen,
                 index=0 if transport_bekannt == "Ja" else 1,
-                format_func=lambda opt: format_schilf_option(opt, beste_tb, ist_schilf),
+                format_func=lambda opt: format_radio_schilf_option(opt, beste_tb, ist_schilf),
                 key="moor_transport_bekannt"
             )
-            render_schilf_empfehlung_hinweis(beste_tb, bester_tb_wert, ist_schilf)
 
             if transport_bekannt_tmp == "Ja":
                 distanz_optionen = [2.5, 5.0, 10.0, 20.0, 30.0, 50.0]
-                beste_km, bester_km_wert = (None, None)
+                beste_km, _ = (None, None)
                 if ist_schilf:
-                    beste_km, bester_km_wert = beste_schilf_option_ermitteln(
+                    beste_km, _ = beste_schilf_option_ermitteln(
                         distanz_optionen,
                         lambda opt: max_netto_fuer_schilf_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1661,27 +1641,21 @@ with tab1:
                         )
                     )
 
-                def format_km_option(x):
-                    label = f"{x:g} km"
-                    if ist_schilf and x == beste_km:
-                        return f"🟢 :green[{label} (Höchster Netto-Ertrag)]"
-                    return label
-
+                if ist_schilf and beste_km is not None:
+                    render_gruene_selectbox_option(f"{beste_km:g} km", ist_schilf)
                 transport_km_tmp = st.selectbox(
                     "Transportentfernung vom Hof zur Verwertungsstelle (km):",
                     distanz_optionen,
-                    format_func=format_km_option,
+                    format_func=lambda x: f"{x:g} km",
                     index=distanz_optionen.index(transport_km) if transport_km in distanz_optionen else 2,
                     key="moor_transport_km"
                 )
-                if ist_schilf and beste_km is not None:
-                    render_schilf_empfehlung_hinweis(f"{beste_km:g} km", bester_km_wert, ist_schilf)
 
         if hat_lager_option:
             lg_optionen = ["Ja", "Nein"]
-            beste_lg, bester_lg_wert = (None, None)
+            beste_lg, _ = (None, None)
             if ist_schilf:
-                beste_lg, bester_lg_wert = beste_schilf_option_ermitteln(
+                beste_lg, _ = beste_schilf_option_ermitteln(
                     lg_optionen,
                     lambda opt: max_netto_fuer_schilf_teilbaum(
                         flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1697,10 +1671,9 @@ with tab1:
                 "Möchten Sie die Produkte lagern?",
                 lg_optionen,
                 index=0 if lagerung_geplant == "Ja" else 1,
-                format_func=lambda opt: format_schilf_option(opt, beste_lg, ist_schilf),
+                format_func=lambda opt: format_radio_schilf_option(opt, beste_lg, ist_schilf),
                 key="moor_lagerung_geplant"
             )
-            render_schilf_empfehlung_hinweis(beste_lg, bester_lg_wert, ist_schilf)
 
             if lagerung_geplant_tmp == "Ja":
                 ist_pellet_oder_brikett = (
@@ -1729,9 +1702,9 @@ with tab1:
                         "Auf einer freien Fläche mit Abdeckung"
                     ]
 
-                beste_la, bester_la_wert = (None, None)
+                beste_la, _ = (None, None)
                 if ist_schilf:
-                    beste_la, bester_la_wert = beste_schilf_option_ermitteln(
+                    beste_la, _ = beste_schilf_option_ermitteln(
                         lager_optionen,
                         lambda opt: max_netto_fuer_schilf_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
@@ -1743,14 +1716,13 @@ with tab1:
                         )
                     )
 
+                render_gruene_selectbox_option(beste_la, ist_schilf)
                 lagerung_art_tmp = st.selectbox(
                     "Wie sollen die Produkte gelagert werden?",
                     lager_optionen,
                     index=lager_optionen.index(lagerung_art) if lagerung_art in lager_optionen else 0,
-                    format_func=lambda opt: format_schilf_option(opt, beste_la, ist_schilf),
                     key="moor_lagerung_art"
                 )
-                render_schilf_empfehlung_hinweis(beste_la, bester_la_wert, ist_schilf)
 
         st.session_state.moor_mahd_zeitpunkt_val = mahd_tmp
         st.session_state.moor_ernteform_val = ernteform_tmp
