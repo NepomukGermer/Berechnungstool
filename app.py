@@ -22,6 +22,525 @@ def go_next():
 
 
 # ==========================================
+# GEMEINSAME UI- & OPTIMIERUNGSHILFEN
+# ==========================================
+def beste_option_ermitteln(optionen, bewertungs_fn):
+    bester_wert = None
+    beste_opt = None
+    for opt in optionen:
+        wert = bewertungs_fn(opt)
+        if bester_wert is None or wert > bester_wert:
+            bester_wert = wert
+            beste_opt = opt
+    return beste_opt, bester_wert
+
+
+def format_radio_option(opt, beste_opt, aktiv):
+    if aktiv and opt == beste_opt:
+        return f":green[{opt}]"
+    return opt
+
+
+def render_kleinen_gruenen_hinweis(beste_opt, aktiv):
+    if aktiv and beste_opt is not None:
+        st.markdown(
+            f"<div style='color:#15803d; font-size:0.78rem; line-height:1.1; margin-top:-0.65rem; margin-bottom:0.55rem;'>{beste_opt}</div>",
+            unsafe_allow_html=True
+        )
+
+
+def opt_selectbox(label, options, key, aktiv, beste_opt=None, index=None, format_func=None, beste_label=None):
+    default_idx = 0
+    if index is not None:
+        default_idx = index
+    elif aktiv and beste_opt in options:
+        default_idx = options.index(beste_opt)
+
+    kwargs = {"index": default_idx, "key": key}
+    if format_func is not None:
+        kwargs["format_func"] = format_func
+
+    val = st.selectbox(label, options, **kwargs)
+    anzeige = beste_label if beste_label is not None else beste_opt
+    render_kleinen_gruenen_hinweis(anzeige, aktiv)
+    return val
+
+
+# ==========================================
+# BERECHNUNGSLOGIK ROHRGLANZGRAS
+# ==========================================
+def rohrglanzgras_szenario_daten(etablierungs_art, mahd_zeitpunkt):
+    ist_ansaat = (etablierungs_art == "Erstetablierung")
+    ist_sommer = (mahd_zeitpunkt == "Sommermahd")
+    if ist_sommer and ist_ansaat:
+        return {
+            "key": "sommer_ansaat",
+            "ertrag_tm": 10.0,
+            "fm_haeck_ballen": 12.50,
+            "fm_pellets": 11.11,
+            "etablierung": 35.0,
+            "laufend": 60.0,
+            "ernte_haeck": 310.0,
+            "ernte_ballen": 350.0,
+            "ernte_langgut": 250.0,
+            "pressen": 400.00,
+            "stationaer_pellet": 581.60,
+            "brikettierung": 600.00,
+            "mobil_pellet": 1795.00,
+            "transport_haeck": {2.5: 91.0, 5.0: 109.0, 10.0: 146.0, 20.0: 219.0, 30.0: 293.0, 50.0: 440.0},
+            "transport_ballen": {2.5: 57.0, 5.0: 65.0, 10.0: 79.0, 20.0: 108.0, 30.0: 137.0, 50.0: 196.0},
+            "transport_pellets": {2.5: 23.0, 5.0: 27.0, 10.0: 34.0, 20.0: 48.0, 30.0: 61.0, 50.0: 89.0},
+            "lager_haeck_halle": 187.50,
+            "lager_haeck_frei": 71.25,
+            "lager_ballen_halle": 318.75,
+            "lager_ballen_alt": 137.50,
+            "lager_ballen_frei": 66.25,
+            "lager_pellets_halle": 130.56
+        }
+    elif ist_sommer and not ist_ansaat:
+        return {
+            "key": "sommer_sukzession",
+            "ertrag_tm": 7.5,
+            "fm_haeck_ballen": 9.38,
+            "fm_pellets": 8.33,
+            "etablierung": 0.0,
+            "laufend": 60.0,
+            "ernte_haeck": 310.0,
+            "ernte_ballen": 350.0,
+            "ernte_langgut": 250.0,
+            "pressen": 300.00,
+            "stationaer_pellet": 436.20,
+            "brikettierung": 450.00,
+            "mobil_pellet": 1346.25,
+            "transport_haeck": {2.5: 68.3, 5.0: 81.8, 10.0: 109.5, 20.0: 164.3, 30.0: 219.8, 50.0: 330.0},
+            "transport_ballen": {2.5: 42.8, 5.0: 48.8, 10.0: 59.3, 20.0: 81.0, 30.0: 102.8, 50.0: 147.0},
+            "transport_pellets": {2.5: 17.3, 5.0: 20.3, 10.0: 25.5, 20.0: 36.0, 30.0: 45.8, 50.0: 66.8},
+            "lager_haeck_halle": 140.63,
+            "lager_haeck_frei": 53.44,
+            "lager_ballen_halle": 239.07,
+            "lager_ballen_alt": 103.13,
+            "lager_ballen_frei": 49.69,
+            "lager_pellets_halle": 97.92
+        }
+    elif not ist_sommer and ist_ansaat:
+        return {
+            "key": "winter_ansaat",
+            "ertrag_tm": 4.0,
+            "fm_haeck_ballen": 5.00,
+            "fm_pellets": 4.44,
+            "etablierung": 35.0,
+            "laufend": 60.0,
+            "ernte_haeck": 300.0,
+            "ernte_ballen": 320.0,
+            "ernte_langgut": 250.0,
+            "pressen": 160.00,
+            "stationaer_pellet": 232.64,
+            "brikettierung": 240.00,
+            "mobil_pellet": 718.00,
+            "transport_haeck": {2.5: 36.4, 5.0: 43.6, 10.0: 58.4, 20.0: 87.6, 30.0: 117.2, 50.0: 176.0},
+            "transport_ballen": {2.5: 22.8, 5.0: 26.0, 10.0: 31.6, 20.0: 43.2, 30.0: 54.8, 50.0: 78.4},
+            "transport_pellets": {2.5: 9.2, 5.0: 10.8, 10.0: 13.6, 20.0: 19.2, 30.0: 24.4, 50.0: 35.6},
+            "lager_haeck_halle": 75.00,
+            "lager_haeck_frei": 28.50,
+            "lager_ballen_halle": 127.50,
+            "lager_ballen_alt": 55.00,
+            "lager_ballen_frei": 26.50,
+            "lager_pellets_halle": 52.22
+        }
+    else:
+        return {
+            "key": "winter_sukzession",
+            "ertrag_tm": 3.0,
+            "fm_haeck_ballen": 3.75,
+            "fm_pellets": 3.33,
+            "etablierung": 0.0,
+            "laufend": 60.0,
+            "ernte_haeck": 300.0,
+            "ernte_ballen": 320.0,
+            "ernte_langgut": 250.0,
+            "pressen": 120.00,
+            "stationaer_pellet": 174.48,
+            "brikettierung": 180.00,
+            "mobil_pellet": 538.50,
+            "transport_haeck": {2.5: 27.3, 5.0: 32.7, 10.0: 43.8, 20.0: 65.7, 30.0: 87.9, 50.0: 132.0},
+            "transport_ballen": {2.5: 17.1, 5.0: 19.5, 10.0: 23.7, 20.0: 32.4, 30.0: 41.1, 50.0: 58.8},
+            "transport_pellets": {2.5: 6.9, 5.0: 8.1, 10.0: 10.2, 20.0: 14.4, 30.0: 18.3, 50.0: 26.7},
+            "lager_haeck_halle": 56.25,
+            "lager_haeck_frei": 21.38,
+            "lager_ballen_halle": 95.63,
+            "lager_ballen_alt": 41.25,
+            "lager_ballen_frei": 19.88,
+            "lager_pellets_halle": 39.17
+        }
+
+
+def rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_zeitpunkt, ernteform, verwertung, folge, ballen_winter):
+    sz = rohrglanzgras_szenario_daten(etablierungs_art, mahd_zeitpunkt)
+    k = sz["key"]
+    ist_sommer = (mahd_zeitpunkt == "Sommermahd")
+    ist_pellet_form = ernteform in [
+        "Pelletierte Form (mobile Pelletierungsmaschine)",
+        "Brikettierte Form (mobile Brikettierungsmaschine)"
+    ] or folge in ["Pellets", "Briketts", "Pellets und Briketts", "Stationäre Pelletieranlage", "Brennstoff-Pellets / Briketts"] or ballen_winter in ["Pellets", "Briketts"]
+
+    if ist_pellet_form:
+        ziel = folge or verwertung or ballen_winter
+        if ziel in ["Verbrennen", "Brennstoff-Pellets / Briketts", "Briketts", "Pellets"]:
+            return 0.0 if ist_sommer else (880.0 if k == "winter_ansaat" else 660.0)
+        if ziel in ["Tiereinstreu", "Einstreu"]:
+            return {"sommer_ansaat": 2800.0, "sommer_sukzession": 2100.0, "winter_ansaat": 1120.0, "winter_sukzession": 840.0}[k]
+        if ziel in ["Raufutterersatz", "Raufutter"]:
+            return {"sommer_ansaat": 3100.0, "sommer_sukzession": 2325.0, "winter_ansaat": 0.0, "winter_sukzession": 0.0}[k]
+        if ziel in ["Organischer Dünger", "Dünger"]:
+            return {"sommer_ansaat": 2400.0, "sommer_sukzession": 1800.0, "winter_ansaat": 0.0, "winter_sukzession": 0.0}[k]
+        if ziel in ["Torfersatz in Kultursubstraten", "Torf- und Kompostersatz", "Kultursubstrate"]:
+            return {"sommer_ansaat": 2100.0, "sommer_sukzession": 1575.0, "winter_ansaat": 840.0, "winter_sukzession": 630.0}[k]
+        if ziel in ["Mulch-Pellets", "Mulchmaterial"]:
+            return {"sommer_ansaat": 2300.0, "sommer_sukzession": 1725.0, "winter_ansaat": 920.0, "winter_sukzession": 690.0}[k]
+        if ziel in ["Biokunststoffe & Spritzguss", "Biokunststoffe"]:
+            return {"sommer_ansaat": 2700.0, "sommer_sukzession": 2025.0, "winter_ansaat": 1080.0, "winter_sukzession": 810.0}[k]
+        if ziel in ["Faserplatten & Dämmstoffe", "Faserplatten und Biokunststoffe", "Plattenwerkstoffe"]:
+            return {"sommer_ansaat": 2100.0, "sommer_sukzession": 1575.0, "winter_ansaat": 840.0, "winter_sukzession": 630.0}[k]
+        if ziel in ["Biogas-Substrat", "Biogasproduktion", "Biogassubstrat"]:
+            return {"sommer_ansaat": 1100.0, "sommer_sukzession": 825.0, "winter_ansaat": 0.0, "winter_sukzession": 0.0}[k]
+        if ziel in ["Papier herstellen", "Papier- und Kartonherstellung"]:
+            return {"sommer_ansaat": 1800.0, "sommer_sukzession": 1350.0, "winter_ansaat": 720.0, "winter_sukzession": 540.0}[k]
+
+    ziel = folge or verwertung
+    if ziel in ["Pferdeheu", "Heu"]:
+        return {"sommer_ansaat": 1765.0, "sommer_sukzession": 1325.0, "winter_ansaat": 0.0, "winter_sukzession": 0.0}[k]
+    if ziel == "Raufutter":
+        return {"sommer_ansaat": 1100.0, "sommer_sukzession": 825.0, "winter_ansaat": 0.0, "winter_sukzession": 0.0}[k]
+    if ziel in ["Silage", "Biogasproduktion", "Biogassubstrat"]:
+        return {"sommer_ansaat": 600.0, "sommer_sukzession": 450.0, "winter_ansaat": 0.0, "winter_sukzession": 0.0}[k]
+    if ziel == "Proteinkonzentrat":
+        return {"sommer_ansaat": 1400.0, "sommer_sukzession": 1050.0, "winter_ansaat": 0.0, "winter_sukzession": 0.0}[k]
+    if ziel in ["Einstreu", "Tiereinstreu"]:
+        return {"sommer_ansaat": 0.0, "sommer_sukzession": 0.0, "winter_ansaat": 400.0, "winter_sukzession": 300.0}[k]
+    if ziel in ["Mulchmaterial", "Mulch"]:
+        return {"sommer_ansaat": 450.0, "sommer_sukzession": 337.5, "winter_ansaat": 340.0, "winter_sukzession": 255.0}[k]
+    if ziel in ["Dünger", "Organischer Dünger"]:
+        return {"sommer_ansaat": 550.0, "sommer_sukzession": 412.5, "winter_ansaat": 80.0, "winter_sukzession": 60.0}[k]
+    if ziel == "Einblasdämmung":
+        return 0.0
+    if ziel in ["Dämmmatten", "Dämmplatten"]:
+        return {"sommer_ansaat": 0.0, "sommer_sukzession": 0.0, "winter_ansaat": 640.0, "winter_sukzession": 480.0}[k]
+    if ziel in ["Plattenwerkstoffe", "Faserplatten und Biokunststoffe", "Bau- & Dämmstoffe", "Dämmen und Bauen"]:
+        return {"sommer_ansaat": 900.0, "sommer_sukzession": 675.0, "winter_ansaat": 740.0, "winter_sukzession": 555.0}[k]
+    if ziel in ["Thermische Verwertung", "Direkte Verbrennung", "Verbrennung"]:
+        return 0.0 if ist_sommer else (673.0 if k == "winter_ansaat" else 504.75)
+    if ziel in ["Torf- und Kompostersatz", "Kultursubstrate"]:
+        return {"sommer_ansaat": 455.0, "sommer_sukzession": 341.25, "winter_ansaat": 1552.5, "winter_sukzession": 1164.38}[k]
+    if ziel in ["Pflanzenkohle & Aktivkohle", "Pflanzenkohle"]:
+        return 0.0 if ist_sommer else (1190.5 if k == "winter_ansaat" else 892.88)
+    if ziel in ["Papier- und Kartonherstellung", "Papier herstellen"]:
+        return 0.0 if ist_sommer else (1190.5 if k == "winter_ansaat" else 892.88)
+    if ziel == "Biokunststoffe":
+        return 0.0 if ist_sommer else (2329.0 if k == "winter_ansaat" else 1746.75)
+
+    return {"sommer_ansaat": 950.0, "sommer_sukzession": 712.5, "winter_ansaat": 380.0, "winter_sukzession": 285.0}[k]
+
+
+def berechne_rohrglanzgras_kosten_und_erloes(
+    flaechen_groesse,
+    bisherige_ertraege_pro_ha,
+    etablierungs_art,
+    mahd_zeitpunkt,
+    ernteform_biomasse,
+    verwertung,
+    folge_auswahl,
+    ballen_winter_option,
+    transport_bekannt,
+    transport_km,
+    lagerung_geplant,
+    lagerung_art,
+    kaufkosten_gesamt
+):
+    sz = rohrglanzgras_szenario_daten(etablierungs_art, mahd_zeitpunkt)
+    etab_ha = sz["etablierung"]
+    laufend_ha = sz["laufend"]
+
+    ist_mobil_pellet = ernteform_biomasse == "Pelletierte Form (mobile Pelletierungsmaschine)"
+    ist_mobil_brikett = ernteform_biomasse == "Brikettierte Form (mobile Brikettierungsmaschine)"
+    ist_pellet_oder_brikett = (
+        ist_mobil_pellet
+        or ist_mobil_brikett
+        or folge_auswahl in ["Pellets", "Briketts", "Pellets und Briketts", "Stationäre Pelletieranlage", "Brennstoff-Pellets / Briketts"]
+        or ballen_winter_option in ["Pellets", "Briketts"]
+    )
+
+    if ernteform_biomasse == "Häckselgut":
+        ernte_ha = sz["ernte_haeck"]
+    elif ernteform_biomasse in ["Rundballen", "Quaderballen"]:
+        ernte_ha = sz["ernte_ballen"]
+    elif ernteform_biomasse == "Loses Langgut":
+        ernte_ha = sz["ernte_langgut"]
+    elif ist_mobil_pellet:
+        ernte_ha = sz["mobil_pellet"]
+    elif ist_mobil_brikett:
+        ernte_ha = sz["brikettierung"]
+    else:
+        ernte_ha = sz["ernte_ballen"]
+
+    endprodukt_ha = 0.0
+    if ernteform_biomasse in ["Rundballen", "Quaderballen"] and mahd_zeitpunkt == "Wintermahd":
+        if ballen_winter_option == "Pellets":
+            endprodukt_ha += sz["stationaer_pellet"]
+        elif ballen_winter_option == "Briketts":
+            endprodukt_ha += sz["brikettierung"]
+        elif ballen_winter_option == "Pressen":
+            endprodukt_ha += sz["pressen"]
+
+    if not ist_mobil_pellet and not ist_mobil_brikett:
+        if folge_auswahl in ["Pellets", "Pellets und Briketts", "Stationäre Pelletieranlage", "Brennstoff-Pellets / Briketts"]:
+            endprodukt_ha += sz["stationaer_pellet"]
+        elif folge_auswahl == "Briketts":
+            endprodukt_ha += sz["brikettierung"]
+        elif folge_auswahl in ["Plattenwerkstoffe", "Faserplatten und Biokunststoffe"] or verwertung in ["Bau- & Dämmstoffe", "Dämmen und Bauen"]:
+            endprodukt_ha += 920.0
+        elif folge_auswahl == "Biokunststoffe":
+            endprodukt_ha += 1280.0
+
+    if ist_pellet_oder_brikett:
+        t_map = sz["transport_pellets"]
+    elif ernteform_biomasse == "Häckselgut":
+        t_map = sz["transport_haeck"]
+    else:
+        t_map = sz["transport_ballen"]
+
+    if transport_bekannt == "Ja":
+        transport_ha = t_map.get(transport_km, t_map[10.0])
+    else:
+        transport_ha = t_map[10.0]
+
+    lager_ha = 0.0
+    if lagerung_geplant == "Ja":
+        if ist_pellet_oder_brikett:
+            if lagerung_art == "In einer Halle":
+                lager_ha = sz["lager_pellets_halle"]
+        elif ernteform_biomasse == "Häckselgut":
+            lager_ha = {
+                "In einer Halle": sz["lager_haeck_halle"],
+                "Auf einer freien Fläche mit Abdeckung": sz["lager_haeck_frei"]
+            }.get(lagerung_art, 0.0)
+        else:
+            lager_ha = {
+                "In einer Halle": sz["lager_ballen_halle"],
+                "In einem Altgebäude": sz["lager_ballen_alt"],
+                "Auf einer freien Fläche mit Abdeckung": sz["lager_ballen_frei"]
+            }.get(lagerung_art, 0.0)
+
+    erloes_ha = rohrglanzgras_erloes_pro_ha(
+        etablierungs_art, mahd_zeitpunkt, ernteform_biomasse, verwertung, folge_auswahl, ballen_winter_option
+    )
+
+    kauf_annuitaet_pro_ha = (kaufkosten_gesamt / 10.0) / flaechen_groesse if flaechen_groesse > 0 else 0.0
+    kosten_pro_ha = etab_ha + laufend_ha + ernte_ha + endprodukt_ha + transport_ha + lager_ha + kauf_annuitaet_pro_ha
+    netto_gesamt = ((bisherige_ertraege_pro_ha + erloes_ha) - kosten_pro_ha) * flaechen_groesse
+
+    return {
+        "etablierung": etab_ha,
+        "laufend": laufend_ha,
+        "ernte": ernte_ha,
+        "endprodukt": endprodukt_ha,
+        "transport": transport_ha,
+        "lager": lager_ha,
+        "erloes_ha": erloes_ha,
+        "netto_gesamt": netto_gesamt
+    }
+
+
+def berechne_rohrglanzgras_netto_pro_ha(
+    flaechen_groesse,
+    bisherige_ertraege_pro_ha,
+    etablierungs_art,
+    mahd_zeitpunkt,
+    ernteform_biomasse,
+    verwertung,
+    folge_auswahl,
+    ballen_winter_option,
+    transport_bekannt,
+    transport_km,
+    lagerung_geplant,
+    lagerung_art,
+    kaufkosten_gesamt
+):
+    return berechne_rohrglanzgras_kosten_und_erloes(
+        flaechen_groesse,
+        bisherige_ertraege_pro_ha,
+        etablierungs_art,
+        mahd_zeitpunkt,
+        ernteform_biomasse,
+        verwertung,
+        folge_auswahl,
+        ballen_winter_option,
+        transport_bekannt,
+        transport_km,
+        lagerung_geplant,
+        lagerung_art,
+        kaufkosten_gesamt
+    )["netto_gesamt"]
+
+
+def rohrglanzgras_ernteformen_fuer_mahd(mahd):
+    opts = ["Häckselgut", "Rundballen", "Quaderballen", "Bunde", "Loses Langgut"]
+    if mahd != "Sommermahd":
+        opts.extend([
+            "Pelletierte Form (mobile Pelletierungsmaschine)",
+            "Brikettierte Form (mobile Brikettierungsmaschine)"
+        ])
+    return opts
+
+
+def rohrglanzgras_pfade_fuer(etab_art, mahd, ernteform):
+    pfade = []
+    if ernteform == "Häckselgut":
+        bereiche = ["Energetische Verwertung", "Bau- und Werkstoffe", "Gartenbau und Landwirtschaft"]
+        if mahd != "Sommermahd":
+            bereiche.append("Thermische Verwertung")
+        for b in bereiche:
+            if b == "Thermische Verwertung":
+                folgen = ["Verbrennung", "Pellets", "Briketts"]
+            elif b == "Energetische Verwertung":
+                if mahd == "Sommermahd":
+                    folgen = ["Biogasproduktion"]
+                else:
+                    folgen = ["Direkte Verbrennung", "Pellets und Briketts"]
+            elif b == "Bau- und Werkstoffe":
+                folgen = ["Faserplatten und Biokunststoffe"] if mahd == "Sommermahd" else ["Faserplatten und Biokunststoffe", "Papier- und Kartonherstellung"]
+            else:
+                folgen = ["Torf- und Kompostersatz", "Mulchmaterial"] if mahd == "Sommermahd" else ["Torf- und Kompostersatz", "Mulchmaterial", "Tiereinstreu", "Pflanzenkohle & Aktivkohle"]
+            for f in folgen:
+                if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, b, f, None) > 0:
+                    pfade.append((b, f, None))
+
+    elif ernteform in ["Rundballen", "Quaderballen"]:
+        ballen_opts = ["Keine zusätzliche Verarbeitung", "Pellets", "Briketts", "Pressen"] if mahd == "Wintermahd" else ["Keine zusätzliche Verarbeitung"]
+        for bw in ballen_opts:
+            if bw != "Keine zusätzliche Verarbeitung":
+                if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, bw, bw, bw) > 0:
+                    pfade.append((bw, bw, bw))
+            else:
+                verw_list = ["Pferdeheu", "Raufutter", "Proteinkonzentrat", "Bau- & Dämmstoffe"] if mahd == "Sommermahd" else ["Einstreu", "Thermische Verwertung", "Bau- & Dämmstoffe"]
+                for v in verw_list:
+                    if v == "Bau- & Dämmstoffe":
+                        folgen = ["Plattenwerkstoffe"] if mahd == "Sommermahd" else ["Dämmmatten", "Dämmplatten", "Plattenwerkstoffe"]
+                        for f in folgen:
+                            if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, v, f, bw) > 0:
+                                pfade.append((v, f, bw))
+                    elif v == "Thermische Verwertung":
+                        for f in ["Briketts", "Pellets", "Trockenmasse / Direktverbrennung"]:
+                            if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, v, f, bw) > 0:
+                                pfade.append((v, f, bw))
+                    else:
+                        if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, v, None, bw) > 0:
+                            pfade.append((v, None, bw))
+
+    elif ernteform == "Bunde":
+        verw_list = ["Pferdeheu", "Raufutter", "Proteinkonzentrat", "Bau- & Dämmstoffe"] if mahd == "Sommermahd" else ["Einstreu", "Thermische Verwertung", "Bau- & Dämmstoffe"]
+        for v in verw_list:
+            if v == "Bau- & Dämmstoffe":
+                folgen = ["Plattenwerkstoffe"] if mahd == "Sommermahd" else ["Dämmmatten", "Dämmplatten", "Plattenwerkstoffe"]
+                for f in folgen:
+                    if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, v, f, None) > 0:
+                        pfade.append((v, f, None))
+            elif v == "Thermische Verwertung":
+                for f in ["Briketts", "Pellets", "Trockenmasse / Direktverbrennung"]:
+                    if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, v, f, None) > 0:
+                        pfade.append((v, f, None))
+            else:
+                if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, v, None, None) > 0:
+                    pfade.append((v, None, None))
+
+    elif ernteform == "Loses Langgut":
+        direkt = ["Raufutter", "Heu", "Silage", "Dünger", "Mulchmaterial"] if mahd == "Sommermahd" else ["Einstreu", "Dünger", "Mulchmaterial"]
+        weiter = ["Biogassubstrat"] if mahd == "Sommermahd" else ["Stationäre Pelletieranlage", "Briketts", "Pflanzenkohle"]
+        for f in direkt:
+            if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, "Direkte Nutzung", f, None) > 0:
+                pfade.append(("Direkte Nutzung", f, None))
+        for f in weiter:
+            if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, "Weiterverarbeitung", f, None) > 0:
+                pfade.append(("Weiterverarbeitung", f, None))
+
+    else:
+        pellet_opts = [
+            "Verbrennen",
+            "Tiereinstreu",
+            "Raufutterersatz",
+            "Organischer Dünger",
+            "Torfersatz in Kultursubstraten",
+            "Mulch-Pellets",
+            "Biokunststoffe & Spritzguss",
+            "Faserplatten & Dämmstoffe",
+            "Pflanzenkohle & Aktivkohle",
+            "Biogas-Substrat",
+            "Papier herstellen"
+        ]
+        for v in pellet_opts:
+            if rohrglanzgras_erloes_pro_ha(etab_art, mahd, ernteform, v, v, None) > 0:
+                pfade.append((v, v, None))
+
+    return pfade
+
+
+def max_netto_fuer_rohrglanzgras_teilbaum(
+    flaechen_groesse,
+    bisherige_ertraege_pro_ha,
+    kaufkosten_gesamt,
+    etab_art=None,
+    mahd=None,
+    ernteform=None,
+    verwertung=None,
+    folge=None,
+    ballen_winter=None,
+    transport_bekannt=None,
+    transport_km=None,
+    lagerung_geplant=None,
+    lagerung_art=None
+):
+    etab_liste = [etab_art] if etab_art is not None else ["Natürliche Sukzession", "Erstetablierung"]
+    mahd_liste = [mahd] if mahd is not None else ["Sommermahd", "Wintermahd"]
+    bester_netto = None
+
+    for ea in etab_liste:
+        for m in mahd_liste:
+            ef_liste = [ernteform] if ernteform is not None else rohrglanzgras_ernteformen_fuer_mahd(m)
+            for ef in ef_liste:
+                alle_pfade = rohrglanzgras_pfade_fuer(ea, m, ef)
+                for v, f, bw in alle_pfade:
+                    if verwertung is not None and v != verwertung:
+                        continue
+                    if folge is not None and f != folge:
+                        continue
+                    if ballen_winter is not None and bw != ballen_winter:
+                        continue
+
+                    tb = transport_bekannt if transport_bekannt is not None else "Ja"
+                    tk = transport_km if transport_km is not None else 10.0
+                    lg = lagerung_geplant if lagerung_geplant is not None else "Nein"
+                    la = lagerung_art if lagerung_art is not None else None
+
+                    netto = berechne_rohrglanzgras_netto_pro_ha(
+                        flaechen_groesse=flaechen_groesse,
+                        bisherige_ertraege_pro_ha=bisherige_ertraege_pro_ha,
+                        etablierungs_art=ea,
+                        mahd_zeitpunkt=m,
+                        ernteform_biomasse=ef,
+                        verwertung=v,
+                        folge_auswahl=f,
+                        ballen_winter_option=bw,
+                        transport_bekannt=tb,
+                        transport_km=tk,
+                        lagerung_geplant=lg,
+                        lagerung_art=la,
+                        kaufkosten_gesamt=kaufkosten_gesamt
+                    )
+                    if bester_netto is None or netto > bester_netto:
+                        bester_netto = netto
+    return bester_netto if bester_netto is not None else 0.0
+
+
+# ==========================================
 # BERECHNUNGSLOGIK SCHILF
 # ==========================================
 def berechne_schilf_netto_pro_ha(
@@ -280,303 +799,8 @@ def berechne_schilf_netto_pro_ha(
     return (erloes_pro_ha - kosten_pro_ha) * flaechen_groesse
 
 
-# ==========================================
-# BERECHNUNGSLOGIK ROHRKOLBEN
-# ==========================================
-def berechne_rohrkolben_kosten_und_erloes(
-    flaechen_groesse,
-    bisherige_ertraege_pro_ha,
-    mahd_zeitpunkt,
-    ernteform_biomasse,
-    verwertung,
-    folge_auswahl,
-    ballen_winter_option,
-    transport_bekannt,
-    transport_km,
-    lagerung_geplant,
-    lagerung_art,
-    kaufkosten_gesamt
-):
-    # Etablierung: 1124,67 €/ha/a + laufende Kosten: 925 €/ha/a
-    etablierung_kosten_pro_ha_jahr = 1124.67
-    laufende_kosten_pro_ha_jahr = 925.00
-
-    ist_mobile_pellet = (ernteform_biomasse == "Pelletierte Form (mobile Pelletierungsmaschine)")
-    ist_mobile_brikett = (ernteform_biomasse == "Brikettierte Form (mobile Brikettierungsmaschine)")
-    ist_mobile_pellet_oder_brikett = ist_mobile_pellet or ist_mobile_brikett
-
-    # Erntekosten: Häckselgut 620, Bunde 1600, Rund-/Quaderballen 420, loses Langgut 420, mobil Pellet Winter 1857.83, mobil Brikett 414
-    if ernteform_biomasse == "Häckselgut":
-        erntekosten_pro_ha_jahr = 620.00
-    elif ernteform_biomasse == "Bunde":
-        erntekosten_pro_ha_jahr = 1600.00
-    elif ernteform_biomasse in ["Rundballen", "Quaderballen", "Loses Langgut"]:
-        erntekosten_pro_ha_jahr = 420.00
-    elif ist_mobile_pellet:
-        erntekosten_pro_ha_jahr = 1857.83
-    elif ist_mobile_brikett:
-        erntekosten_pro_ha_jahr = 414.00
-    else:
-        erntekosten_pro_ha_jahr = 420.00
-
-    # Ballen Winter-Weiterverarbeitung
-    if ernteform_biomasse in ["Rundballen", "Quaderballen"] and mahd_zeitpunkt == "Wintermahd":
-        erntekosten_pro_ha_jahr += {
-            "Pellets": 601.96,
-            "Briketts": 414.00,
-            "Pressen": 621.00
-        }.get(ballen_winter_option, 0.0)
-
-    # Endprodukt- / Aufbereitungskosten
-    endprodukt_kosten_pro_ha_jahr = 0.0
-    if not ist_mobile_pellet_oder_brikett:
-        if folge_auswahl in ["Pellets", "Pellets und Briketts", "Stationäre Pelletieranlage"]:
-            endprodukt_kosten_pro_ha_jahr = 601.96
-        elif folge_auswahl == "Briketts":
-            endprodukt_kosten_pro_ha_jahr = 414.00
-        elif (
-            folge_auswahl in ["Formteile", "Plattenwerkstoffe", "Faserplatten und Biokunststoffe"]
-            or verwertung == "Werkstoffe"
-        ):
-            endprodukt_kosten_pro_ha_jahr = 920.00
-        elif folge_auswahl == "Biokunststoffe":
-            endprodukt_kosten_pro_ha_jahr = 1280.00
-        elif (
-            folge_auswahl in ["Einblasdämmung", "Dämmmatten", "Dämmstoffe (Einblasdämmung / Dämmmatten)"]
-            or verwertung in ["Dämmen und Bauen", "Bau- & Dämmstoffe"]
-        ):
-            endprodukt_kosten_pro_ha_jahr = 11200.00
-
-    # Transportkosten Rohrkolben (Tab. 6.3 angepasst; bei "Nein" / unbekannt -> 25 km Mittelwert aus 20 & 30 km)
-    ist_pellet_oder_brikett_produkt = (
-        ist_mobile_pellet_oder_brikett
-        or folge_auswahl in ["Pellets", "Briketts", "Pellets und Briketts", "Stationäre Pelletieranlage"]
-        or ballen_winter_option in ["Pellets", "Briketts"]
-    )
-    ist_ballen_oder_langgut = ernteform_biomasse in ["Rundballen", "Quaderballen", "Loses Langgut", "Bunde"]
-
-    if ist_pellet_oder_brikett_produkt:
-        # Pellets (650 kg/m³) Sattelzug (100 m³); 25 km = (49.7 + 63.1) / 2 = 56.40
-        if transport_bekannt == "Ja":
-            transport_kosten_pro_ha_jahr = {
-                2.5: 23.80,
-                5.0: 27.90,
-                10.0: 35.20,
-                20.0: 49.70,
-                30.0: 63.10,
-                50.0: 92.10
-            }.get(transport_km, 56.40)
-        else:
-            transport_kosten_pro_ha_jahr = 56.40
-    elif ernteform_biomasse == "Häckselgut":
-        # Häckselgut (ca. 35 kg/m³) Sattelzug (100 m³); 25 km = (291.4 + 389.9) / 2 = 340.65
-        if transport_bekannt == "Ja":
-            transport_kosten_pro_ha_jahr = {
-                2.5: 121.10,
-                5.0: 145.10,
-                10.0: 194.30,
-                20.0: 291.40,
-                30.0: 389.90,
-                50.0: 585.50
-            }.get(transport_km, 340.65)
-        else:
-            transport_kosten_pro_ha_jahr = 340.65
-    elif ist_ballen_oder_langgut:
-        # Ballengut (ca. 180 kg/RB) Ballentransportwagen (10 t); 25 km = (136.6 + 173.3) / 2 = 154.95
-        if transport_bekannt == "Ja":
-            transport_kosten_pro_ha_jahr = {
-                2.5: 72.10,
-                5.0: 82.20,
-                10.0: 100.00,
-                20.0: 136.60,
-                30.0: 173.30,
-                50.0: 248.00
-            }.get(transport_km, 154.95)
-        else:
-            transport_kosten_pro_ha_jahr = 154.95
-    else:
-        transport_kosten_pro_ha_jahr = 154.95
-
-    # Lagerungskosten Rohrkolben (Tab. 6.4 angepasst: Mittelwert der Spannweite bei Halle)
-    # Häckselgut: Halle Ø 194.10 (129.40–258.80), Frei abgedeckt 73.76
-    # Ballen/Langgut: Halle Ø 329.97 (310.56–349.38), Altgebäude 142.34, Frei abgedeckt 68.58
-    # Pellets: Halle Ø 135.13 (103.50–166.75)
-    lager_kosten_pro_ha_jahr = 0.0
-    if lagerung_geplant == "Ja":
-        if ist_pellet_oder_brikett_produkt:
-            if lagerung_art == "In einer Halle":
-                lager_kosten_pro_ha_jahr = 135.13
-        elif ernteform_biomasse == "Häckselgut":
-            lager_kosten_pro_ha_jahr = {
-                "In einer Halle": 194.10,
-                "Auf einer freien Fläche mit Abdeckung": 73.76
-            }.get(lagerung_art, 0.0)
-        else:
-            lager_kosten_pro_ha_jahr = {
-                "In einer Halle": 329.97,
-                "In einem Altgebäude": 142.34,
-                "Auf einer freien Fläche mit Abdeckung": 68.58
-            }.get(lagerung_art, 0.0)
-
-    # Erlöse Rohrkolben (€/ha/a)
-    ist_sommer = (mahd_zeitpunkt == "Sommermahd")
-    nutzung_erloes_pro_ha_jahr = 1150.0
-
-    # Spezifische Vorgaben: Häckselgut 1728.45, Dämmplatte 3000, Pollen (Samen) 1750
-    if verwertung == "Samen" or folge_auswahl in [
-        "Samen zur Weitervermehrung nutzen",
-        "Fasern als Füllfaser verwenden",
-        "Fasern als Dämmfaser verwenden"
-    ]:
-        nutzung_erloes_pro_ha_jahr = 1750.00
-    elif verwertung == "Dämmplatten" or folge_auswahl in ["Dämmplatten", "Dämmplatten & Leichtbaumatten"]:
-        nutzung_erloes_pro_ha_jahr = 3000.00
-    elif folge_auswahl in ["Einblasdämmung", "Dämmmatten"] or verwertung in ["Dämmen und Bauen", "Bau- & Dämmstoffe"]:
-        nutzung_erloes_pro_ha_jahr = 17595.00
-    elif folge_auswahl == "Zuschlagstoff für Lehm- und Kalkputze":
-        nutzung_erloes_pro_ha_jahr = 1811.50
-    elif folge_auswahl in ["Plattenwerkstoffe", "Faserplatten und Biokunststoffe"] or verwertung == "Faserplatten & Dämmstoffe":
-        nutzung_erloes_pro_ha_jahr = 747.50 if ist_sommer else 2846.50
-    elif folge_auswahl == "Formteile" or verwertung == "Werkstoffe":
-        nutzung_erloes_pro_ha_jahr = 747.50 if ist_sommer else 1863.00
-    elif folge_auswahl == "Biokunststoffe":
-        nutzung_erloes_pro_ha_jahr = 2329.00
-    elif folge_auswahl == "Papier- und Kartonherstellung" or verwertung == "Papier herstellen":
-        nutzung_erloes_pro_ha_jahr = 1190.50
-    elif verwertung in ["Plattformchemikalien", "Biokunststoffe & Spritzguss"]:
-        nutzung_erloes_pro_ha_jahr = 585.00 if ist_sommer else 1242.00
-    elif verwertung in ["Bio-Aktivkohle"] or folge_auswahl in ["Pflanzenkohle & Aktivkohle", "Pflanzenkohle"]:
-        nutzung_erloes_pro_ha_jahr = 1190.50
-    elif (
-        ist_mobile_pellet_oder_brikett
-        or folge_auswahl in ["Pellets", "Briketts", "Pellets und Briketts", "Stationäre Pelletieranlage", "Direkte Verbrennung", "Verbrennung"]
-        or ballen_winter_option in ["Pellets", "Briketts"]
-        or verwertung in ["Thermische Verwertung", "Verbrennen"]
-    ):
-        nutzung_erloes_pro_ha_jahr = 673.00
-    elif folge_auswahl in ["Biogasproduktion", "Biogassubstrat", "Biogas-Substrat"]:
-        nutzung_erloes_pro_ha_jahr = 220.00
-    elif verwertung in ["Gartenbausubstrate", "Torfersatz in Kultursubstraten"] or folge_auswahl == "Torf- und Kompostersatz":
-        nutzung_erloes_pro_ha_jahr = 455.00 if ist_sommer else 1552.50
-    elif folge_auswahl == "Mulchmaterial" or verwertung == "Mulch-Pellets":
-        nutzung_erloes_pro_ha_jahr = 292.50 if ist_sommer else 931.50
-    elif verwertung in ["Einstreu", "Tiereinstreu"] or folge_auswahl in ["Einstreu", "Tiereinstreu"]:
-        nutzung_erloes_pro_ha_jahr = 931.50
-    elif folge_auswahl in ["Raufutter", "Heu"] or verwertung == "Raufutterersatz":
-        nutzung_erloes_pro_ha_jahr = 617.50
-    elif folge_auswahl == "Silage":
-        nutzung_erloes_pro_ha_jahr = 660.00
-    elif folge_auswahl == "Dünger" or verwertung == "Organischer Dünger":
-        nutzung_erloes_pro_ha_jahr = 357.50 if ist_sommer else 207.50
-    elif ernteform_biomasse == "Häckselgut":
-        nutzung_erloes_pro_ha_jahr = 1728.45
-
-    kauf_annuitaet_pro_ha = (kaufkosten_gesamt / 10.0) / flaechen_groesse if flaechen_groesse > 0 else 0.0
-    kosten_pro_ha = (
-        etablierung_kosten_pro_ha_jahr
-        + laufende_kosten_pro_ha_jahr
-        + erntekosten_pro_ha_jahr
-        + endprodukt_kosten_pro_ha_jahr
-        + transport_kosten_pro_ha_jahr
-        + lager_kosten_pro_ha_jahr
-        + kauf_annuitaet_pro_ha
-    )
-    erloes_pro_ha = bisherige_ertraege_pro_ha + nutzung_erloes_pro_ha_jahr
-    netto_gesamt = (erloes_pro_ha - kosten_pro_ha) * flaechen_groesse
-
-    return {
-        "etablierung": etablierung_kosten_pro_ha_jahr,
-        "laufend": laufende_kosten_pro_ha_jahr,
-        "ernte": erntekosten_pro_ha_jahr,
-        "endprodukt": endprodukt_kosten_pro_ha_jahr,
-        "transport": transport_kosten_pro_ha_jahr,
-        "lager": lager_kosten_pro_ha_jahr,
-        "erloes_ha": nutzung_erloes_pro_ha_jahr,
-        "netto_gesamt": netto_gesamt
-    }
-
-
-def berechne_rohrkolben_netto_pro_ha(
-    flaechen_groesse,
-    bisherige_ertraege_pro_ha,
-    mahd_zeitpunkt,
-    ernteform_biomasse,
-    verwertung,
-    folge_auswahl,
-    ballen_winter_option,
-    transport_bekannt,
-    transport_km,
-    lagerung_geplant,
-    lagerung_art,
-    kaufkosten_gesamt
-):
-    return berechne_rohrkolben_kosten_und_erloes(
-        flaechen_groesse,
-        bisherige_ertraege_pro_ha,
-        mahd_zeitpunkt,
-        ernteform_biomasse,
-        verwertung,
-        folge_auswahl,
-        ballen_winter_option,
-        transport_bekannt,
-        transport_km,
-        lagerung_geplant,
-        lagerung_art,
-        kaufkosten_gesamt
-    )["netto_gesamt"]
-
-
-# ==========================================
-# OPTIMIERUNGS- & UI-HILFSFUNKTIONEN (SCHILF & ROHRKOLBEN)
-# ==========================================
-def beste_option_ermitteln(optionen, bewertungs_fn):
-    bester_wert = None
-    beste_opt = None
-    for opt in optionen:
-        wert = bewertungs_fn(opt)
-        if bester_wert is None or wert > bester_wert:
-            bester_wert = wert
-            beste_opt = opt
-    return beste_opt, bester_wert
-
-
-def format_radio_option(opt, beste_opt, aktiv):
-    if aktiv and opt == beste_opt:
-        return f":green[{opt}]"
-    return opt
-
-
-def render_kleinen_gruenen_hinweis(beste_opt, aktiv):
-    if aktiv and beste_opt is not None:
-        st.markdown(
-            f"<div style='color:#15803d; font-size:0.78rem; line-height:1.1; margin-top:-0.65rem; margin-bottom:0.55rem;'>{beste_opt}</div>",
-            unsafe_allow_html=True
-        )
-
-
-def opt_selectbox(label, options, key, aktiv, beste_opt=None, index=None, format_func=None, beste_label=None):
-    default_idx = 0
-    if index is not None:
-        default_idx = index
-    elif aktiv and beste_opt in options:
-        default_idx = options.index(beste_opt)
-
-    kwargs = {"index": default_idx, "key": key}
-    if format_func is not None:
-        kwargs["format_func"] = format_func
-
-    val = st.selectbox(label, options, **kwargs)
-    anzeige = beste_label if beste_label is not None else beste_opt
-    render_kleinen_gruenen_hinweis(anzeige, aktiv)
-    return val
-
-
-def ernteformen_fuer_bew_und_mahd(bew, mahd):
-    if bew == "Rohrkolben":
-        # Bunde rausgestrichen; Pellets/Briketts nur bei Wintermahd
-        opts = ["Häckselgut", "Rundballen", "Quaderballen", "Loses Langgut"]
-    else:
-        opts = ["Häckselgut", "Rundballen", "Quaderballen", "Bunde", "Loses Langgut"]
+def schilf_ernteformen_fuer_mahd(mahd):
+    opts = ["Häckselgut", "Rundballen", "Quaderballen", "Bunde", "Loses Langgut"]
     if mahd != "Sommermahd":
         opts.extend([
             "Pelletierte Form (mobile Pelletierungsmaschine)",
@@ -702,6 +926,316 @@ def schilf_pfade_fuer(mahd, ernteform):
     return pfade
 
 
+def max_netto_fuer_schilf_teilbaum(
+    flaechen_groesse,
+    bisherige_ertraege_pro_ha,
+    kaufkosten_gesamt,
+    etab_art=None,
+    etab_detail=None,
+    mahd=None,
+    ernteform=None,
+    verwertung=None,
+    folge=None,
+    ballen_winter=None,
+    transport_bekannt=None,
+    transport_km=None,
+    lagerung_geplant=None,
+    lagerung_art=None
+):
+    etab_kombis = (
+        [(etab_art, etab_detail)]
+        if etab_art is not None
+        else [
+            ("Natürliche Sukzession", None),
+            ("Erstetablierung", "Aussaat"),
+            ("Erstetablierung", "Anpflanzung mit Jungpflanzen")
+        ]
+    )
+    mahd_liste = [mahd] if mahd is not None else ["Sommermahd", "Wintermahd"]
+
+    bester_netto = None
+    for ea, ed in etab_kombis:
+        for m in mahd_liste:
+            ef_liste = [ernteform] if ernteform is not None else schilf_ernteformen_fuer_mahd(m)
+            for ef in ef_liste:
+                alle_pfade = schilf_pfade_fuer(m, ef)
+                for v, f, bw in alle_pfade:
+                    if verwertung is not None and v != verwertung:
+                        continue
+                    if folge is not None and f != folge:
+                        continue
+                    if ballen_winter is not None and bw != ballen_winter:
+                        continue
+
+                    tb = transport_bekannt if transport_bekannt is not None else "Ja"
+                    tk = transport_km if transport_km is not None else 2.5
+                    lg = lagerung_geplant if lagerung_geplant is not None else "Nein"
+                    la = lagerung_art if lagerung_art is not None else None
+
+                    netto = berechne_schilf_netto_pro_ha(
+                        flaechen_groesse=flaechen_groesse,
+                        bisherige_ertraege_pro_ha=bisherige_ertraege_pro_ha,
+                        etablierungs_art=ea,
+                        etablierungs_detail=ed,
+                        mahd_zeitpunkt=m,
+                        ernteform_biomasse=ef,
+                        verwertung=v,
+                        folge_auswahl=f,
+                        ballen_winter_option=bw,
+                        erntetechnik=None,
+                        transport_bekannt=tb,
+                        transport_km=tk,
+                        lagerung_geplant=lg,
+                        lagerung_art=la,
+                        kaufkosten_gesamt=kaufkosten_gesamt
+                    )
+                    if bester_netto is None or netto > bester_netto:
+                        bester_netto = netto
+    return bester_netto if bester_netto is not None else 0.0
+
+
+# ==========================================
+# BERECHNUNGSLOGIK ROHRKOLBEN
+# ==========================================
+def berechne_rohrkolben_kosten_und_erloes(
+    flaechen_groesse,
+    bisherige_ertraege_pro_ha,
+    mahd_zeitpunkt,
+    ernteform_biomasse,
+    verwertung,
+    folge_auswahl,
+    ballen_winter_option,
+    transport_bekannt,
+    transport_km,
+    lagerung_geplant,
+    lagerung_art,
+    kaufkosten_gesamt
+):
+    etablierung_kosten_pro_ha_jahr = 1124.67
+    laufende_kosten_pro_ha_jahr = 925.00
+
+    ist_mobile_pellet = (ernteform_biomasse == "Pelletierte Form (mobile Pelletierungsmaschine)")
+    ist_mobile_brikett = (ernteform_biomasse == "Brikettierte Form (mobile Brikettierungsmaschine)")
+    ist_mobile_pellet_oder_brikett = ist_mobile_pellet or ist_mobile_brikett
+
+    if ernteform_biomasse == "Häckselgut":
+        erntekosten_pro_ha_jahr = 620.00
+    elif ernteform_biomasse == "Bunde":
+        erntekosten_pro_ha_jahr = 1600.00
+    elif ernteform_biomasse in ["Rundballen", "Quaderballen", "Loses Langgut"]:
+        erntekosten_pro_ha_jahr = 420.00
+    elif ist_mobile_pellet:
+        erntekosten_pro_ha_jahr = 1857.83
+    elif ist_mobile_brikett:
+        erntekosten_pro_ha_jahr = 414.00
+    else:
+        erntekosten_pro_ha_jahr = 420.00
+
+    if ernteform_biomasse in ["Rundballen", "Quaderballen"] and mahd_zeitpunkt == "Wintermahd":
+        erntekosten_pro_ha_jahr += {
+            "Pellets": 601.96,
+            "Briketts": 414.00,
+            "Pressen": 621.00
+        }.get(ballen_winter_option, 0.0)
+
+    endprodukt_kosten_pro_ha_jahr = 0.0
+    if not ist_mobile_pellet_oder_brikett:
+        if folge_auswahl in ["Pellets", "Pellets und Briketts", "Stationäre Pelletieranlage"]:
+            endprodukt_kosten_pro_ha_jahr = 601.96
+        elif folge_auswahl == "Briketts":
+            endprodukt_kosten_pro_ha_jahr = 414.00
+        elif (
+            folge_auswahl in ["Formteile", "Plattenwerkstoffe", "Faserplatten und Biokunststoffe"]
+            or verwertung == "Werkstoffe"
+        ):
+            endprodukt_kosten_pro_ha_jahr = 920.00
+        elif folge_auswahl == "Biokunststoffe":
+            endprodukt_kosten_pro_ha_jahr = 1280.00
+        elif (
+            folge_auswahl in ["Einblasdämmung", "Dämmmatten", "Dämmstoffe (Einblasdämmung / Dämmmatten)"]
+            or verwertung in ["Dämmen und Bauen", "Bau- & Dämmstoffe"]
+        ):
+            endprodukt_kosten_pro_ha_jahr = 11200.00
+
+    ist_pellet_oder_brikett_produkt = (
+        ist_mobile_pellet_oder_brikett
+        or folge_auswahl in ["Pellets", "Briketts", "Pellets und Briketts", "Stationäre Pelletieranlage"]
+        or ballen_winter_option in ["Pellets", "Briketts"]
+    )
+    ist_ballen_oder_langgut = ernteform_biomasse in ["Rundballen", "Quaderballen", "Loses Langgut", "Bunde"]
+
+    if ist_pellet_oder_brikett_produkt:
+        if transport_bekannt == "Ja":
+            transport_kosten_pro_ha_jahr = {
+                2.5: 23.80,
+                5.0: 27.90,
+                10.0: 35.20,
+                20.0: 49.70,
+                30.0: 63.10,
+                50.0: 92.10
+            }.get(transport_km, 56.40)
+        else:
+            transport_kosten_pro_ha_jahr = 56.40
+    elif ernteform_biomasse == "Häckselgut":
+        if transport_bekannt == "Ja":
+            transport_kosten_pro_ha_jahr = {
+                2.5: 121.10,
+                5.0: 145.10,
+                10.0: 194.30,
+                20.0: 291.40,
+                30.0: 389.90,
+                50.0: 585.50
+            }.get(transport_km, 340.65)
+        else:
+            transport_kosten_pro_ha_jahr = 340.65
+    elif ist_ballen_oder_langgut:
+        if transport_bekannt == "Ja":
+            transport_kosten_pro_ha_jahr = {
+                2.5: 72.10,
+                5.0: 82.20,
+                10.0: 100.00,
+                20.0: 136.60,
+                30.0: 173.30,
+                50.0: 248.00
+            }.get(transport_km, 154.95)
+        else:
+            transport_kosten_pro_ha_jahr = 154.95
+    else:
+        transport_kosten_pro_ha_jahr = 154.95
+
+    lager_kosten_pro_ha_jahr = 0.0
+    if lagerung_geplant == "Ja":
+        if ist_pellet_oder_brikett_produkt:
+            if lagerung_art == "In einer Halle":
+                lager_kosten_pro_ha_jahr = 135.13
+        elif ernteform_biomasse == "Häckselgut":
+            lager_kosten_pro_ha_jahr = {
+                "In einer Halle": 194.10,
+                "Auf einer freien Fläche mit Abdeckung": 73.76
+            }.get(lagerung_art, 0.0)
+        else:
+            lager_kosten_pro_ha_jahr = {
+                "In einer Halle": 329.97,
+                "In einem Altgebäude": 142.34,
+                "Auf einer freien Fläche mit Abdeckung": 68.58
+            }.get(lagerung_art, 0.0)
+
+    ist_sommer = (mahd_zeitpunkt == "Sommermahd")
+    nutzung_erloes_pro_ha_jahr = 1150.0
+
+    if verwertung == "Samen" or folge_auswahl in [
+        "Samen zur Weitervermehrung nutzen",
+        "Fasern als Füllfaser verwenden",
+        "Fasern als Dämmfaser verwenden"
+    ]:
+        nutzung_erloes_pro_ha_jahr = 1750.00
+    elif verwertung == "Dämmplatten" or folge_auswahl in ["Dämmplatten", "Dämmplatten & Leichtbaumatten"]:
+        nutzung_erloes_pro_ha_jahr = 3000.00
+    elif folge_auswahl in ["Einblasdämmung", "Dämmmatten"] or verwertung in ["Dämmen und Bauen", "Bau- & Dämmstoffe"]:
+        nutzung_erloes_pro_ha_jahr = 17595.00
+    elif folge_auswahl == "Zuschlagstoff für Lehm- und Kalkputze":
+        nutzung_erloes_pro_ha_jahr = 1811.50
+    elif folge_auswahl in ["Plattenwerkstoffe", "Faserplatten und Biokunststoffe"] or verwertung == "Faserplatten & Dämmstoffe":
+        nutzung_erloes_pro_ha_jahr = 747.50 if ist_sommer else 2846.50
+    elif folge_auswahl == "Formteile" or verwertung == "Werkstoffe":
+        nutzung_erloes_pro_ha_jahr = 747.50 if ist_sommer else 1863.00
+    elif folge_auswahl == "Biokunststoffe":
+        nutzung_erloes_pro_ha_jahr = 2329.00
+    elif folge_auswahl == "Papier- und Kartonherstellung" or verwertung == "Papier herstellen":
+        nutzung_erloes_pro_ha_jahr = 1190.50
+    elif verwertung in ["Plattformchemikalien", "Biokunststoffe & Spritzguss"]:
+        nutzung_erloes_pro_ha_jahr = 585.00 if ist_sommer else 1242.00
+    elif verwertung in ["Bio-Aktivkohle"] or folge_auswahl in ["Pflanzenkohle & Aktivkohle", "Pflanzenkohle"]:
+        nutzung_erloes_pro_ha_jahr = 1190.50
+    elif (
+        ist_mobile_pellet_oder_brikett
+        or folge_auswahl in ["Pellets", "Briketts", "Pellets und Briketts", "Stationäre Pelletieranlage", "Direkte Verbrennung", "Verbrennung"]
+        or ballen_winter_option in ["Pellets", "Briketts"]
+        or verwertung in ["Thermische Verwertung", "Verbrennen"]
+    ):
+        nutzung_erloes_pro_ha_jahr = 673.00
+    elif folge_auswahl in ["Biogasproduktion", "Biogassubstrat", "Biogas-Substrat"]:
+        nutzung_erloes_pro_ha_jahr = 220.00
+    elif verwertung in ["Gartenbausubstrate", "Torfersatz in Kultursubstraten"] or folge_auswahl == "Torf- und Kompostersatz":
+        nutzung_erloes_pro_ha_jahr = 455.00 if ist_sommer else 1552.50
+    elif folge_auswahl == "Mulchmaterial" or verwertung == "Mulch-Pellets":
+        nutzung_erloes_pro_ha_jahr = 292.50 if ist_sommer else 931.50
+    elif verwertung in ["Einstreu", "Tiereinstreu"] or folge_auswahl in ["Einstreu", "Tiereinstreu"]:
+        nutzung_erloes_pro_ha_jahr = 931.50
+    elif folge_auswahl in ["Raufutter", "Heu"] or verwertung == "Raufutterersatz":
+        nutzung_erloes_pro_ha_jahr = 617.50
+    elif folge_auswahl == "Silage":
+        nutzung_erloes_pro_ha_jahr = 660.00
+    elif folge_auswahl == "Dünger" or verwertung == "Organischer Dünger":
+        nutzung_erloes_pro_ha_jahr = 357.50 if ist_sommer else 207.50
+    elif ernteform_biomasse == "Häckselgut":
+        nutzung_erloes_pro_ha_jahr = 1728.45
+
+    kauf_annuitaet_pro_ha = (kaufkosten_gesamt / 10.0) / flaechen_groesse if flaechen_groesse > 0 else 0.0
+    kosten_pro_ha = (
+        etablierung_kosten_pro_ha_jahr
+        + laufende_kosten_pro_ha_jahr
+        + erntekosten_pro_ha_jahr
+        + endprodukt_kosten_pro_ha_jahr
+        + transport_kosten_pro_ha_jahr
+        + lager_kosten_pro_ha_jahr
+        + kauf_annuitaet_pro_ha
+    )
+    erloes_pro_ha = bisherige_ertraege_pro_ha + nutzung_erloes_pro_ha_jahr
+    netto_gesamt = (erloes_pro_ha - kosten_pro_ha) * flaechen_groesse
+
+    return {
+        "etablierung": etablierung_kosten_pro_ha_jahr,
+        "laufend": laufende_kosten_pro_ha_jahr,
+        "ernte": erntekosten_pro_ha_jahr,
+        "endprodukt": endprodukt_kosten_pro_ha_jahr,
+        "transport": transport_kosten_pro_ha_jahr,
+        "lager": lager_kosten_pro_ha_jahr,
+        "erloes_ha": nutzung_erloes_pro_ha_jahr,
+        "netto_gesamt": netto_gesamt
+    }
+
+
+def berechne_rohrkolben_netto_pro_ha(
+    flaechen_groesse,
+    bisherige_ertraege_pro_ha,
+    mahd_zeitpunkt,
+    ernteform_biomasse,
+    verwertung,
+    folge_auswahl,
+    ballen_winter_option,
+    transport_bekannt,
+    transport_km,
+    lagerung_geplant,
+    lagerung_art,
+    kaufkosten_gesamt
+):
+    return berechne_rohrkolben_kosten_und_erloes(
+        flaechen_groesse,
+        bisherige_ertraege_pro_ha,
+        mahd_zeitpunkt,
+        ernteform_biomasse,
+        verwertung,
+        folge_auswahl,
+        ballen_winter_option,
+        transport_bekannt,
+        transport_km,
+        lagerung_geplant,
+        lagerung_art,
+        kaufkosten_gesamt
+    )["netto_gesamt"]
+
+
+def rohrkolben_ernteformen_fuer_mahd(mahd):
+    opts = ["Häckselgut", "Rundballen", "Quaderballen", "Loses Langgut"]
+    if mahd != "Sommermahd":
+        opts.extend([
+            "Pelletierte Form (mobile Pelletierungsmaschine)",
+            "Brikettierte Form (mobile Brikettierungsmaschine)"
+        ])
+    return opts
+
+
 def rohrkolben_pfade_fuer(mahd, ernteform):
     pfade = []
     if ernteform == "Häckselgut":
@@ -803,74 +1337,6 @@ def rohrkolben_pfade_fuer(mahd, ernteform):
     return pfade
 
 
-def max_netto_fuer_schilf_teilbaum(
-    flaechen_groesse,
-    bisherige_ertraege_pro_ha,
-    kaufkosten_gesamt,
-    etab_art=None,
-    etab_detail=None,
-    mahd=None,
-    ernteform=None,
-    verwertung=None,
-    folge=None,
-    ballen_winter=None,
-    transport_bekannt=None,
-    transport_km=None,
-    lagerung_geplant=None,
-    lagerung_art=None
-):
-    etab_kombis = (
-        [(etab_art, etab_detail)]
-        if etab_art is not None
-        else [
-            ("Natürliche Sukzession", None),
-            ("Erstetablierung", "Aussaat"),
-            ("Erstetablierung", "Anpflanzung mit Jungpflanzen")
-        ]
-    )
-    mahd_liste = [mahd] if mahd is not None else ["Sommermahd", "Wintermahd"]
-
-    bester_netto = None
-    for ea, ed in etab_kombis:
-        for m in mahd_liste:
-            ef_liste = [ernteform] if ernteform is not None else ernteformen_fuer_bew_und_mahd("Schilf", m)
-            for ef in ef_liste:
-                alle_pfade = schilf_pfade_fuer(m, ef)
-                for v, f, bw in alle_pfade:
-                    if verwertung is not None and v != verwertung:
-                        continue
-                    if folge is not None and f != folge:
-                        continue
-                    if ballen_winter is not None and bw != ballen_winter:
-                        continue
-
-                    tb = transport_bekannt if transport_bekannt is not None else "Ja"
-                    tk = transport_km if transport_km is not None else 2.5
-                    lg = lagerung_geplant if lagerung_geplant is not None else "Nein"
-                    la = lagerung_art if lagerung_art is not None else None
-
-                    netto = berechne_schilf_netto_pro_ha(
-                        flaechen_groesse=flaechen_groesse,
-                        bisherige_ertraege_pro_ha=bisherige_ertraege_pro_ha,
-                        etablierungs_art=ea,
-                        etablierungs_detail=ed,
-                        mahd_zeitpunkt=m,
-                        ernteform_biomasse=ef,
-                        verwertung=v,
-                        folge_auswahl=f,
-                        ballen_winter_option=bw,
-                        erntetechnik=None,
-                        transport_bekannt=tb,
-                        transport_km=tk,
-                        lagerung_geplant=lg,
-                        lagerung_art=la,
-                        kaufkosten_gesamt=kaufkosten_gesamt
-                    )
-                    if bester_netto is None or netto > bester_netto:
-                        bester_netto = netto
-    return bester_netto if bester_netto is not None else 0.0
-
-
 def max_netto_fuer_rohrkolben_teilbaum(
     flaechen_groesse,
     bisherige_ertraege_pro_ha,
@@ -888,7 +1354,7 @@ def max_netto_fuer_rohrkolben_teilbaum(
     mahd_liste = [mahd] if mahd is not None else ["Sommermahd", "Wintermahd"]
     bester_netto = None
     for m in mahd_liste:
-        ef_liste = [ernteform] if ernteform is not None else ernteformen_fuer_bew_und_mahd("Rohrkolben", m)
+        ef_liste = [ernteform] if ernteform is not None else rohrkolben_ernteformen_fuer_mahd(m)
         for ef in ef_liste:
             alle_pfade = rohrkolben_pfade_fuer(m, ef)
             for v, f, bw in alle_pfade:
@@ -1133,6 +1599,9 @@ with tab1:
         )
 
         ist_schilf_step1 = (bew_tmp == "Schilf")
+        ist_rgg_step1 = (bew_tmp == "Rohrglanzgras")
+        aktiv_step1 = ist_schilf_step1 or ist_rgg_step1
+
         etab_tmp = None
         etab_detail_tmp = None
         if bew_tmp not in ["Tierhaltung", "Photo-Voltaik"]:
@@ -1145,16 +1614,23 @@ with tab1:
                         flaechen_groesse, ertrag_tmp, kaufkosten_gesamt, etab_art=opt
                     )
                 )
+            elif ist_rgg_step1:
+                beste_etab, _ = beste_option_ermitteln(
+                    etab_optionen,
+                    lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                        flaechen_groesse, ertrag_tmp, kaufkosten_gesamt, etab_art=opt
+                    )
+                )
 
             etab_tmp = st.radio(
                 "Möchten Sie natürliche Sukzession oder eine Erstetablierung durchführen?",
                 etab_optionen,
                 index=0 if etablierungs_art != "Erstetablierung" else 1,
-                format_func=lambda opt: format_radio_option(opt, beste_etab, ist_schilf_step1),
+                format_func=lambda opt: format_radio_option(opt, beste_etab, aktiv_step1),
                 key="input_etablierung"
             )
 
-            if etab_tmp == "Erstetablierung":
+            if etab_tmp == "Erstetablierung" and not ist_rgg_step1:
                 detail_optionen = ["Aussaat", "Anpflanzung mit Jungpflanzen"]
                 beste_detail, _ = (None, None)
                 if ist_schilf_step1:
@@ -1173,6 +1649,8 @@ with tab1:
                     format_func=lambda opt: format_radio_option(opt, beste_detail, ist_schilf_step1),
                     key="input_etablierung_detail"
                 )
+            elif etab_tmp == "Erstetablierung" and ist_rgg_step1:
+                etab_detail_tmp = "Aussaat"
 
         st.markdown("---")
         if st.button("Weiter →", type="primary", key="btn_weiter_1"):
@@ -1195,7 +1673,8 @@ with tab1:
 
         ist_schilf = (bewirtschaftung == "Schilf")
         ist_rohrkolben = (bewirtschaftung == "Rohrkolben")
-        hat_opt_highlight = ist_schilf or ist_rohrkolben
+        ist_rgg = (bewirtschaftung == "Rohrglanzgras")
+        hat_opt_highlight = ist_schilf or ist_rohrkolben or ist_rgg
 
         mahd_tmp = mahd_zeitpunkt
         ernteform_tmp = None
@@ -1233,6 +1712,14 @@ with tab1:
                         flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt, mahd=opt
                     )
                 )
+            elif ist_rgg:
+                beste_mahd, _ = beste_option_ermitteln(
+                    mahd_optionen,
+                    lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                        flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                        etab_art=etablierungs_art, mahd=opt
+                    )
+                )
 
             mahd_tmp = st.radio(
                 f"Wann erfolgt die Mahd bei {bewirtschaftung}?",
@@ -1241,7 +1728,12 @@ with tab1:
                 key=f"mahd_{bewirtschaftung}"
             )
 
-            ernteform_optionen = ernteformen_fuer_bew_und_mahd(bewirtschaftung, mahd_tmp)
+            if ist_rohrkolben:
+                ernteform_optionen = rohrkolben_ernteformen_fuer_mahd(mahd_tmp)
+            elif ist_rgg:
+                ernteform_optionen = rohrglanzgras_ernteformen_fuer_mahd(mahd_tmp)
+            else:
+                ernteform_optionen = schilf_ernteformen_fuer_mahd(mahd_tmp)
 
             beste_ernteform, _ = (None, None)
             if ist_schilf:
@@ -1259,6 +1751,14 @@ with tab1:
                     lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                         flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                         mahd=mahd_tmp, ernteform=opt
+                    )
+                )
+            elif ist_rgg:
+                beste_ernteform, _ = beste_option_ermitteln(
+                    ernteform_optionen,
+                    lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                        flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                        etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=opt
                     )
                 )
 
@@ -1280,6 +1780,16 @@ with tab1:
                 if not (bewirtschaftung in ["Schilf", "Rohrkolben"] and mahd_tmp == "Sommermahd"):
                     bereich_optionen.append("Thermische Verwertung")
 
+                if ist_rgg:
+                    bereich_optionen = [
+                        b for b in bereich_optionen
+                        if any(
+                            rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, b, f, None) > 0
+                            for _, f, _ in rohrglanzgras_pfade_fuer(etablierungs_art, mahd_tmp, ernteform_tmp)
+                            if _ == b
+                        )
+                    ]
+
                 beste_verw, _ = (None, None)
                 if ist_schilf:
                     beste_verw, _ = beste_option_ermitteln(
@@ -1298,6 +1808,14 @@ with tab1:
                             mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt
                         )
                     )
+                elif ist_rgg:
+                    beste_verw, _ = beste_option_ermitteln(
+                        bereich_optionen,
+                        lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt
+                        )
+                    )
 
                 verwertung_tmp = opt_selectbox(
                     "Wofür soll das Häckselgut genutzt werden?",
@@ -1311,6 +1829,11 @@ with tab1:
                     thermisch_haeckselfeld_optionen = ["Verbrennung"]
                     if mahd_tmp != "Sommermahd":
                         thermisch_haeckselfeld_optionen.extend(["Pellets", "Briketts"])
+                    if ist_rgg:
+                        thermisch_haeckselfeld_optionen = [
+                            f for f in thermisch_haeckselfeld_optionen
+                            if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, verwertung_tmp, f, None) > 0
+                        ]
 
                     beste_folge, _ = (None, None)
                     if ist_schilf:
@@ -1329,6 +1852,15 @@ with tab1:
                             lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                                 mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+                    elif ist_rgg:
+                        beste_folge, _ = beste_option_ermitteln(
+                            thermisch_haeckselfeld_optionen,
+                            lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
                                 verwertung=verwertung_tmp, folge=opt
                             )
                         )
@@ -1353,6 +1885,11 @@ with tab1:
                         energie_optionen.append("Zellulose-Ethanol")
                     if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
                         energie_optionen.append("Biogasanlage")
+                    if ist_rgg:
+                        energie_optionen = [
+                            f for f in energie_optionen
+                            if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, verwertung_tmp, f, None) > 0
+                        ]
 
                     beste_folge, _ = (None, None)
                     if ist_schilf:
@@ -1371,6 +1908,15 @@ with tab1:
                             lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                                 mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+                    elif ist_rgg:
+                        beste_folge, _ = beste_option_ermitteln(
+                            energie_optionen,
+                            lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
                                 verwertung=verwertung_tmp, folge=opt
                             )
                         )
@@ -1392,6 +1938,8 @@ with tab1:
                         ]
                     elif bewirtschaftung == "Rohrkolben" and mahd_tmp == "Sommermahd":
                         stoff_optionen = ["Faserplatten und Biokunststoffe"]
+                    elif ist_rgg and mahd_tmp == "Sommermahd":
+                        stoff_optionen = ["Faserplatten und Biokunststoffe"]
                     else:
                         stoff_optionen = [
                             "Einblasdämmung",
@@ -1399,6 +1947,11 @@ with tab1:
                             "Zuschlagstoff für Lehm- und Kalkputze",
                             "Faserplatten und Biokunststoffe",
                             "Papier- und Kartonherstellung"
+                        ]
+                    if ist_rgg:
+                        stoff_optionen = [
+                            f for f in stoff_optionen
+                            if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, verwertung_tmp, f, None) > 0
                         ]
 
                     beste_folge, _ = (None, None)
@@ -1418,6 +1971,15 @@ with tab1:
                             lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                                 mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+                    elif ist_rgg:
+                        beste_folge, _ = beste_option_ermitteln(
+                            stoff_optionen,
+                            lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
                                 verwertung=verwertung_tmp, folge=opt
                             )
                         )
@@ -1431,7 +1993,7 @@ with tab1:
                     )
 
                 elif verwertung_tmp == "Gartenbau und Landwirtschaft":
-                    if bewirtschaftung == "Rohrkolben" and mahd_tmp == "Sommermahd":
+                    if bewirtschaftung in ["Rohrkolben", "Rohrglanzgras"] and mahd_tmp == "Sommermahd":
                         garten_optionen = [
                             "Torf- und Kompostersatz",
                             "Mulchmaterial"
@@ -1444,6 +2006,11 @@ with tab1:
                         ]
                         if mahd_tmp == "Wintermahd":
                             garten_optionen.insert(2, "Tiereinstreu")
+                    if ist_rgg:
+                        garten_optionen = [
+                            f for f in garten_optionen
+                            if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, verwertung_tmp, f, None) > 0
+                        ]
 
                     beste_folge, _ = (None, None)
                     if ist_schilf:
@@ -1462,6 +2029,15 @@ with tab1:
                             lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                                 mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+                    elif ist_rgg:
+                        beste_folge, _ = beste_option_ermitteln(
+                            garten_optionen,
+                            lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
                                 verwertung=verwertung_tmp, folge=opt
                             )
                         )
@@ -1494,6 +2070,14 @@ with tab1:
                             lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                                 mahd=mahd_tmp, ernteform=ernteform_tmp, ballen_winter=opt
+                            )
+                        )
+                    elif ist_rgg:
+                        beste_bw, _ = beste_option_ermitteln(
+                            ballen_opt_list,
+                            lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp, ballen_winter=opt
                             )
                         )
 
@@ -1556,14 +2140,25 @@ with tab1:
                             "Kohle"
                         ]
                     else:
-                        basis_verwertung = [
-                            "Pferdeheu",
-                            "Raufutter",
-                            "Proteinkonzentrat",
-                            "Einstreu",
-                            "Thermische Verwertung",
-                            "Bau- & Dämmstoffe"
-                        ]
+                        if mahd_tmp == "Sommermahd":
+                            basis_verwertung = [
+                                "Pferdeheu",
+                                "Raufutter",
+                                "Proteinkonzentrat",
+                                "Bau- & Dämmstoffe"
+                            ]
+                        else:
+                            basis_verwertung = [
+                                "Einstreu",
+                                "Thermische Verwertung",
+                                "Bau- & Dämmstoffe"
+                            ]
+                        if ist_rgg:
+                            basis_verwertung = [
+                                v for v in basis_verwertung
+                                if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, v, None, ballen_winter_tmp) > 0
+                                or v in ["Bau- & Dämmstoffe", "Thermische Verwertung"]
+                            ]
 
                     beste_verw, _ = (None, None)
                     if ist_schilf:
@@ -1585,6 +2180,15 @@ with tab1:
                                 verwertung=opt, ballen_winter=ballen_winter_tmp
                             )
                         )
+                    elif ist_rgg:
+                        beste_verw, _ = beste_option_ermitteln(
+                            basis_verwertung,
+                            lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=opt, ballen_winter=ballen_winter_tmp
+                            )
+                        )
 
                     verwertung_tmp = opt_selectbox(
                         f"Welche Verwertung für {ernteform_tmp} streben Sie an?",
@@ -1594,7 +2198,7 @@ with tab1:
                         beste_opt=beste_verw
                     )
 
-            # 3) Bunde (für Rohrkolben nicht mehr verfügbar)
+            # 3) Bunde
             elif ernteform_tmp == "Bunde":
                 if bewirtschaftung == "Schilf":
                     if mahd_tmp == "Sommermahd":
@@ -1624,14 +2228,11 @@ with tab1:
                         "Kohle"
                     ]
                 else:
-                    basis_verwertung = [
-                        "Pferdeheu",
-                        "Raufutter",
-                        "Proteinkonzentrat",
-                        "Einstreu",
-                        "Thermische Verwertung",
-                        "Bau- & Dämmstoffe"
-                    ]
+                    basis_verwertung = (
+                        ["Pferdeheu", "Raufutter", "Proteinkonzentrat", "Bau- & Dämmstoffe"]
+                        if mahd_tmp == "Sommermahd"
+                        else ["Einstreu", "Thermische Verwertung", "Bau- & Dämmstoffe"]
+                    )
 
                 beste_verw, _ = (None, None)
                 if ist_schilf:
@@ -1643,12 +2244,20 @@ with tab1:
                             mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt
                         )
                     )
+                elif ist_rgg:
+                    beste_verw, _ = beste_option_ermitteln(
+                        basis_verwertung,
+                        lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt
+                        )
+                    )
 
                 verwertung_tmp = opt_selectbox(
                     "Welche Verwertung für Bunde streben Sie an?",
                     basis_verwertung,
                     key=f"bunde_verwertung_{bewirtschaftung}_{mahd_tmp}",
-                    aktiv=ist_schilf,
+                    aktiv=(ist_schilf or ist_rgg),
                     beste_opt=beste_verw
                 )
 
@@ -1673,6 +2282,14 @@ with tab1:
                             mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt
                         )
                     )
+                elif ist_rgg:
+                    beste_verw, _ = beste_option_ermitteln(
+                        langgut_bereiche,
+                        lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt
+                        )
+                    )
 
                 verwertung_tmp = opt_selectbox(
                     "Wie soll das lose Langgut genutzt werden?",
@@ -1683,7 +2300,7 @@ with tab1:
                 )
 
                 if verwertung_tmp == "Direkte Nutzung":
-                    if bewirtschaftung == "Schilf" and mahd_tmp == "Sommermahd":
+                    if bewirtschaftung in ["Schilf", "Rohrkolben", "Rohrglanzgras"] and mahd_tmp == "Sommermahd":
                         direkt_optionen = [
                             "Raufutter",
                             "Heu",
@@ -1691,27 +2308,12 @@ with tab1:
                             "Dünger",
                             "Mulchmaterial"
                         ]
-                    elif bewirtschaftung == "Schilf" and mahd_tmp == "Wintermahd":
-                        direkt_optionen = [
-                            "Heu",
-                            "Einstreu",
-                            "Dünger",
-                            "Mulchmaterial"
-                        ]
-                    elif bewirtschaftung == "Rohrkolben" and mahd_tmp == "Sommermahd":
-                        direkt_optionen = [
-                            "Raufutter",
-                            "Heu",
-                            "Silage",
-                            "Dünger",
-                            "Mulchmaterial"
-                        ]
-                    elif bewirtschaftung == "Rohrkolben" and mahd_tmp == "Wintermahd":
-                        direkt_optionen = [
-                            "Einstreu",
-                            "Dünger",
-                            "Mulchmaterial"
-                        ]
+                    elif bewirtschaftung in ["Schilf", "Rohrkolben", "Rohrglanzgras"] and mahd_tmp == "Wintermahd":
+                        direkt_optionen = (
+                            ["Heu", "Einstreu", "Dünger", "Mulchmaterial"]
+                            if bewirtschaftung == "Schilf"
+                            else ["Einstreu", "Dünger", "Mulchmaterial"]
+                        )
                     else:
                         direkt_optionen = [
                             "Raufutter",
@@ -1720,6 +2322,11 @@ with tab1:
                             "Einstreu",
                             "Dünger",
                             "Mulchmaterial"
+                        ]
+                    if ist_rgg:
+                        direkt_optionen = [
+                            f for f in direkt_optionen
+                            if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, verwertung_tmp, f, None) > 0
                         ]
 
                     beste_folge, _ = (None, None)
@@ -1742,6 +2349,15 @@ with tab1:
                                 verwertung=verwertung_tmp, folge=opt
                             )
                         )
+                    elif ist_rgg:
+                        beste_folge, _ = beste_option_ermitteln(
+                            direkt_optionen,
+                            lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
 
                     folge_tmp = opt_selectbox(
                         "Welche direkte Nutzung soll erfolgen?",
@@ -1752,7 +2368,7 @@ with tab1:
                     )
                 else:
                     if mahd_tmp == "Sommermahd":
-                        if bewirtschaftung in ["Schilf", "Rohrkolben"]:
+                        if bewirtschaftung in ["Schilf", "Rohrkolben", "Rohrglanzgras"]:
                             weiter_optionen = ["Biogassubstrat"]
                         else:
                             weiter_optionen = [
@@ -1768,6 +2384,12 @@ with tab1:
                                 "Einblasdämmung",
                                 "Pflanzenkohle"
                             ]
+                        elif bewirtschaftung == "Rohrglanzgras":
+                            weiter_optionen = [
+                                "Stationäre Pelletieranlage",
+                                "Briketts",
+                                "Pflanzenkohle"
+                            ]
                         else:
                             weiter_optionen = [
                                 "Stationäre Pelletieranlage",
@@ -1778,6 +2400,11 @@ with tab1:
                             ]
                             if bewirtschaftung == "Schilf":
                                 weiter_optionen.append("Sortierung zu Dachreetbunden")
+                    if ist_rgg:
+                        weiter_optionen = [
+                            f for f in weiter_optionen
+                            if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, verwertung_tmp, f, None) > 0
+                        ]
 
                     beste_folge, _ = (None, None)
                     if ist_schilf:
@@ -1796,6 +2423,15 @@ with tab1:
                             lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                                 flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                                 mahd=mahd_tmp, ernteform=ernteform_tmp,
+                                verwertung=verwertung_tmp, folge=opt
+                            )
+                        )
+                    elif ist_rgg:
+                        beste_folge, _ = beste_option_ermitteln(
+                            weiter_optionen,
+                            lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                                flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                                etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
                                 verwertung=verwertung_tmp, folge=opt
                             )
                         )
@@ -1836,6 +2472,11 @@ with tab1:
                         "Biogas-Substrat",
                         "Papier herstellen"
                     ]
+                if ist_rgg:
+                    pellet_optionen = [
+                        f for f in pellet_optionen
+                        if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, f, f, None) > 0
+                    ]
 
                 beste_verw, _ = (None, None)
                 if ist_schilf:
@@ -1853,6 +2494,14 @@ with tab1:
                         lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                             mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt, folge=opt
+                        )
+                    )
+                elif ist_rgg:
+                    beste_verw, _ = beste_option_ermitteln(
+                        pellet_optionen,
+                        lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp, verwertung=opt, folge=opt
                         )
                     )
 
@@ -1991,7 +2640,15 @@ with tab1:
         # Allgemeine Folgeabfragen (nur wenn bei Ballen nicht schon eine Weiterverarbeitung gewählt wurde)
         if not ballen_endprodukt_gewuenscht:
             if verwertung_tmp in ["Dämmen und Bauen", "Bau- & Dämmstoffe"]:
-                daemm_opts = ["Einblasdämmung", "Dämmmatten", "Dämmplatten", "Plattenwerkstoffe"]
+                if ist_rgg:
+                    daemm_opts = ["Plattenwerkstoffe"] if mahd_tmp == "Sommermahd" else ["Dämmmatten", "Dämmplatten", "Plattenwerkstoffe"]
+                    daemm_opts = [
+                        f for f in daemm_opts
+                        if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, verwertung_tmp, f, ballen_winter_tmp) > 0
+                    ]
+                else:
+                    daemm_opts = ["Einblasdämmung", "Dämmmatten", "Dämmplatten", "Plattenwerkstoffe"]
+
                 beste_folge, _ = (None, None)
                 if ist_rohrkolben:
                     beste_folge, _ = beste_option_ermitteln(
@@ -2002,11 +2659,20 @@ with tab1:
                             verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
                         )
                     )
+                elif ist_rgg:
+                    beste_folge, _ = beste_option_ermitteln(
+                        daemm_opts,
+                        lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
+                            verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
+                        )
+                    )
                 folge_tmp = opt_selectbox(
                     "Welche Dämm- bzw. Bauprodukte möchten Sie herstellen?",
                     daemm_opts,
                     key="folge_daemmung",
-                    aktiv=ist_rohrkolben,
+                    aktiv=(ist_rohrkolben or ist_rgg),
                     beste_opt=beste_folge
                 )
 
@@ -2059,7 +2725,7 @@ with tab1:
                     "Welche Werkstoffvariante möchten Sie herstellen?",
                     werkstoff_opts,
                     key="folge_werkstoffe",
-                    aktiv=hat_opt_highlight,
+                    aktiv=(ist_schilf or ist_rohrkolben),
                     beste_opt=beste_folge
                 )
 
@@ -2106,6 +2772,27 @@ with tab1:
                         thermisch_rk_optionen,
                         key=f"folge_thermisch_rk_{mahd_tmp}",
                         aktiv=ist_rohrkolben,
+                        beste_opt=beste_folge
+                    )
+                elif ist_rgg:
+                    thermisch_rgg_optionen = ["Briketts", "Pellets", "Trockenmasse / Direktverbrennung"]
+                    thermisch_rgg_optionen = [
+                        f for f in thermisch_rgg_optionen
+                        if rohrglanzgras_erloes_pro_ha(etablierungs_art, mahd_tmp, ernteform_tmp, verwertung_tmp, f, ballen_winter_tmp) > 0
+                    ]
+                    beste_folge, _ = beste_option_ermitteln(
+                        thermisch_rgg_optionen,
+                        lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
+                            verwertung=verwertung_tmp, folge=opt, ballen_winter=ballen_winter_tmp
+                        )
+                    )
+                    folge_tmp = opt_selectbox(
+                        "Wie möchten Sie das Rohrglanzgras thermisch nutzen?",
+                        thermisch_rgg_optionen,
+                        key=f"folge_thermisch_rgg_{mahd_tmp}",
+                        aktiv=ist_rgg,
                         beste_opt=beste_folge
                     )
                 else:
@@ -2161,9 +2848,9 @@ with tab1:
         )
         keine_ernte_und_kein_transport = ist_schilf_ethanol or ist_schilf_biogasanlage
 
-        schilf_ohne_maschinenfrage = (
-            bewirtschaftung == "Schilf"
-            and ernteform_tmp in ["Häckselgut", "Rundballen", "Quaderballen", "Loses Langgut"]
+        ohne_maschinenfrage = (
+            (bewirtschaftung == "Schilf" and ernteform_tmp in ["Häckselgut", "Rundballen", "Quaderballen", "Loses Langgut"])
+            or bewirtschaftung in ["Rohrkolben", "Rohrglanzgras"]
         )
 
         ist_tierhaltung = (
@@ -2171,10 +2858,10 @@ with tab1:
             or (bewirtschaftung == "Nasswiese" and verwertung_tmp == "Tierhaltung")
         )
         if (
-            bewirtschaftung not in ["Photo-Voltaik", "Tierhaltung", "Schwarzerle", "Rohrkolben"]
+            bewirtschaftung not in ["Photo-Voltaik", "Tierhaltung", "Schwarzerle"]
             and not ist_tierhaltung
             and not keine_ernte_und_kein_transport
-            and not schilf_ohne_maschinenfrage
+            and not ohne_maschinenfrage
         ):
             erntetechnik_tmp = st.selectbox(
                 "Wie sieht es mit Erntemaschinen aus?",
@@ -2188,11 +2875,11 @@ with tab1:
                 key="moor_erntetechnik"
             )
 
-        # Transport & Lagerung: bei Rohrkolben für alle Pfade abfragen; bei anderen wie gehabt
         hat_transport_gut = (
             not keine_ernte_und_kein_transport
             and (
                 ist_rohrkolben
+                or ist_rgg
                 or ernteform_tmp in [
                     "Häckselgut",
                     "Rundballen",
@@ -2218,7 +2905,7 @@ with tab1:
         hat_lager_option = (
             bewirtschaftung not in ["Photo-Voltaik", "Tierhaltung"]
             and not ist_tierhaltung
-            and (ist_rohrkolben or ernteform_tmp not in ["Bunde", "Loses Langgut"])
+            and (ist_rohrkolben or ist_rgg or ernteform_tmp not in ["Bunde", "Loses Langgut"])
         )
 
         if hat_transport_gut or hat_lager_option:
@@ -2256,6 +2943,17 @@ with tab1:
                         lagerung_geplant=lagerung_geplant, lagerung_art=lagerung_art
                     )
                 )
+            elif ist_rgg:
+                beste_tb, _ = beste_option_ermitteln(
+                    tb_optionen,
+                    lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                        flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                        etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
+                        verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
+                        transport_bekannt=opt, transport_km=2.5,
+                        lagerung_geplant=lagerung_geplant, lagerung_art=lagerung_art
+                    )
+                )
 
             transport_bekannt_tmp = st.radio(
                 "Wissen Sie, wie weit das Gut vom Hof zur Verwertungsstelle transportiert werden soll?",
@@ -2286,6 +2984,17 @@ with tab1:
                         lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                             flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                             mahd=mahd_tmp, ernteform=ernteform_tmp,
+                            verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
+                            transport_bekannt="Ja", transport_km=opt,
+                            lagerung_geplant=lagerung_geplant, lagerung_art=lagerung_art
+                        )
+                    )
+                elif ist_rgg:
+                    beste_km, _ = beste_option_ermitteln(
+                        distanz_optionen,
+                        lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
                             verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
                             transport_bekannt="Ja", transport_km=opt,
                             lagerung_geplant=lagerung_geplant, lagerung_art=lagerung_art
@@ -2329,6 +3038,17 @@ with tab1:
                     lambda opt: max_netto_fuer_rohrkolben_teilbaum(
                         flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
                         mahd=mahd_tmp, ernteform=ernteform_tmp,
+                        verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
+                        transport_bekannt=transport_bekannt_tmp, transport_km=transport_km_tmp,
+                        lagerung_geplant=opt, lagerung_art="Auf einer freien Fläche mit Abdeckung"
+                    )
+                )
+            elif ist_rgg:
+                beste_lg, _ = beste_option_ermitteln(
+                    lg_optionen,
+                    lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                        flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                        etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
                         verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
                         transport_bekannt=transport_bekannt_tmp, transport_km=transport_km_tmp,
                         lagerung_geplant=opt, lagerung_art="Auf einer freien Fläche mit Abdeckung"
@@ -2394,6 +3114,17 @@ with tab1:
                             lagerung_geplant="Ja", lagerung_art=opt
                         )
                     )
+                elif ist_rgg:
+                    beste_la, _ = beste_option_ermitteln(
+                        lager_optionen,
+                        lambda opt: max_netto_fuer_rohrglanzgras_teilbaum(
+                            flaechen_groesse, bisherige_ertraege_pro_ha, kaufkosten_gesamt,
+                            etab_art=etablierungs_art, mahd=mahd_tmp, ernteform=ernteform_tmp,
+                            verwertung=verwertung_tmp, folge=folge_tmp, ballen_winter=ballen_winter_tmp,
+                            transport_bekannt=transport_bekannt_tmp, transport_km=transport_km_tmp,
+                            lagerung_geplant="Ja", lagerung_art=opt
+                        )
+                    )
 
                 la_idx = (
                     lager_optionen.index(beste_la)
@@ -2454,7 +3185,46 @@ with tab1:
 
     kauf_annuitaet_jahr = kaufkosten_gesamt / 10.0
 
-    if bewirtschaftung == "Rohrkolben":
+    if bewirtschaftung == "Rohrglanzgras":
+        rgg_daten = berechne_rohrglanzgras_kosten_und_erloes(
+            flaechen_groesse=flaechen_groesse,
+            bisherige_ertraege_pro_ha=bisherige_ertraege_pro_ha,
+            etablierungs_art=etablierungs_art,
+            mahd_zeitpunkt=mahd_zeitpunkt,
+            ernteform_biomasse=ernteform_biomasse,
+            verwertung=verwertung,
+            folge_auswahl=folge_auswahl,
+            ballen_winter_option=ballen_winter_option,
+            transport_bekannt=transport_bekannt,
+            transport_km=transport_km,
+            lagerung_geplant=lagerung_geplant,
+            lagerung_art=lagerung_art,
+            kaufkosten_gesamt=kaufkosten_gesamt
+        )
+        kosten_bauer_jahr = (
+            flaechen_groesse * (
+                rgg_daten["etablierung"]
+                + rgg_daten["laufend"]
+                + rgg_daten["ernte"]
+                + rgg_daten["endprodukt"]
+                + rgg_daten["transport"]
+                + rgg_daten["lager"]
+            )
+            + kauf_annuitaet_jahr
+        )
+        kosten_volk_jahr = (
+            flaechen_groesse * 850.0
+            + flaechen_groesse * (
+                rgg_daten["etablierung"]
+                + rgg_daten["laufend"]
+                + rgg_daten["endprodukt"]
+            )
+            + kauf_annuitaet_jahr
+        )
+        erloes_moor = flaechen_groesse * (bisherige_ertraege_pro_ha + rgg_daten["erloes_ha"])
+        netto_ertrag_moor = erloes_moor - kosten_bauer_jahr
+
+    elif bewirtschaftung == "Rohrkolben":
         rk_daten = berechne_rohrkolben_kosten_und_erloes(
             flaechen_groesse=flaechen_groesse,
             bisherige_ertraege_pro_ha=bisherige_ertraege_pro_ha,
